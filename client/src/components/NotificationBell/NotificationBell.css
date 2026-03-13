@@ -1,0 +1,337 @@
+/* ═══════════════════════════════════════════════════════════════
+   NotificationBell.css — Glass Dark Theme
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Wrapper ────────────────────────────────────────────────── */
+.notif-bell-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Bell button ────────────────────────────────────────────── */
+.notif-bell-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--glass-white);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.notif-bell-btn:hover {
+  background: var(--glass-white-md);
+  border-color: rgba(79, 142, 247, 0.35);
+  color: var(--text-primary);
+}
+
+.notif-bell-btn.has-unread {
+  border-color: rgba(79, 142, 247, 0.4);
+  color: var(--accent-soft);
+}
+
+/* ── Badge ──────────────────────────────────────────────────── */
+.notif-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  background: linear-gradient(135deg, var(--accent) 0%, #3b6fd4 100%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-shadow: 0 2px 8px var(--accent-glow);
+  border: 2px solid var(--bg-void);
+  line-height: 1;
+}
+
+/* ── Dropdown panel ─────────────────────────────────────────── */
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  max-height: 480px;
+  background: rgba(11, 18, 32, 0.97);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeUp 0.2s ease both;
+}
+
+/* Glossy top edge */
+.notif-dropdown::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(79, 142, 247, 0.5), transparent);
+  z-index: 1;
+}
+
+/* ── Dropdown header ────────────────────────────────────────── */
+.notif-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.notif-dropdown-header h4 {
+  font-family: 'Syne', sans-serif;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.1px;
+}
+
+.notif-clear-btn {
+  background: none;
+  border: none;
+  color: var(--accent-soft);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+}
+
+.notif-clear-btn:hover {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+/* ── Scrollable list ────────────────────────────────────────── */
+.notif-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.notif-list::-webkit-scrollbar { width: 3px; }
+.notif-list::-webkit-scrollbar-track { background: transparent; }
+.notif-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border-hi);
+  border-radius: 4px;
+}
+
+/* ── Single notification row ────────────────────────────────── */
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--transition);
+  border-left: 3px solid transparent;
+  position: relative;
+}
+
+.notif-item:hover {
+  background: var(--glass-white);
+}
+
+.notif-item.unread {
+  border-left-color: var(--accent-soft);
+  background: var(--accent-dim);
+}
+
+.notif-item.unread:hover {
+  background: rgba(79, 142, 247, 0.16);
+}
+
+/* ── Icon circle ────────────────────────────────────────────── */
+.notif-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.notif-icon.green  {
+  background: var(--green-dim);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+.notif-icon.red    {
+  background: var(--red-dim);
+  border-color: rgba(248, 113, 113, 0.2);
+}
+.notif-icon.amber  {
+  background: var(--amber-dim);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+.notif-icon.purple {
+  background: var(--accent-dim);
+  border-color: rgba(79, 142, 247, 0.2);
+}
+
+/* ── Text area ──────────────────────────────────────────────── */
+.notif-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-message {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  margin: 0 0 2px;
+  white-space: normal;
+}
+
+.notif-detail {
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin: 0 0 3px;
+  line-height: 1.4;
+}
+
+.notif-time {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* ── Delete button ──────────────────────────────────────────── */
+.notif-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition), color var(--transition), background var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notif-item:hover .notif-delete-btn {
+  opacity: 1;
+}
+
+.notif-delete-btn:hover {
+  color: var(--red);
+  background: var(--red-dim);
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── Loading ────────────────────────────────────────────────── */
+.notif-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── Confirm / Reject action buttons ───────────────────────── */
+.notif-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.notif-action-confirm {
+  padding: 4px 10px;
+  background: var(--green-dim);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--green);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  display: inline-flex;
+  align-items: center;
+}
+
+.notif-action-confirm:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: var(--green);
+}
+
+.notif-action-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notif-action-reject {
+  padding: 4px 10px;
+  background: var(--red-dim);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  display: inline-flex;
+  align-items: center;
+}
+
+.notif-action-reject:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: var(--red);
+}
+
+.notif-action-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .notif-dropdown {
+    width: calc(100vw - 24px);
+    right: -60px;
+  }
+}

@@ -1,0 +1,429 @@
+/* ═══════════════════════════════════════════════════════════════
+   GroupDetail.css — Glass Dark Theme
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Member item ────────────────────────────────────────────── */
+.member-item {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+.member-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.member-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  transition: all var(--transition);
+}
+
+/* ── Settlement breakdown ───────────────────────────────────── */
+.member-settlements {
+  padding: 6px 12px 10px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.settlement-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.arrow-owe  { color: var(--red);   flex-shrink: 0; }
+.arrow-owed { color: var(--green); flex-shrink: 0; }
+.settlement-owe  { color: var(--red); }
+.settlement-owed { color: var(--green); }
+
+/* ── Modal overrides ────────────────────────────────────────── */
+.modal-large {
+  max-width: 560px;
+  width: 95vw;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Payer mode toggle ──────────────────────────────────────── */
+.toggle-group {
+  display: flex;
+  background: var(--glass-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition);
+}
+
+.toggle-btn:hover:not(.active) {
+  background: var(--glass-white-md);
+  color: var(--text-primary);
+}
+
+.toggle-btn.active {
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  color: var(--accent-soft);
+  font-weight: 600;
+}
+
+/* ── Multi-payer grid ───────────────────────────────────────── */
+.multi-payer-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.multi-payer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.multi-payer-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.multi-payer-currency {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.avatar-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.total-hint {
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+/* ── Split type radios ──────────────────────────────────────── */
+.split-type-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color var(--transition);
+}
+
+.radio-option:hover {
+  color: var(--text-primary);
+}
+
+.radio-option input[type="radio"] {
+  accent-color: var(--accent-soft);
+  width: 15px;
+  height: 15px;
+}
+
+/* ── Split among checkboxes ─────────────────────────────────── */
+.split-among-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.split-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-white);
+  transition: all var(--transition);
+  color: var(--text-primary);
+}
+
+.split-member-row:hover {
+  background: var(--glass-white-md);
+  border-color: var(--glass-border-hi);
+}
+
+.split-member-row.selected {
+  border-color: rgba(79, 142, 247, 0.4);
+  background: var(--accent-dim);
+}
+
+.split-member-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.split-member-label span {
+  color: var(--text-primary);
+}
+
+.split-member-label input[type="checkbox"] {
+  accent-color: var(--accent-soft);
+  width: 15px;
+  height: 15px;
+}
+
+/* ── Per-member amount inputs ───────────────────────────────── */
+.split-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-small {
+  width: 80px !important;
+  text-align: right;
+  padding: 4px 8px !important;
+}
+
+.input-suffix,
+.input-prefix {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.calc-hint {
+  font-size: 11px;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.split-equal-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Running total bar ──────────────────────────────────────── */
+.running-total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--amber);
+  margin-top: 6px;
+  text-align: right;
+}
+
+/* ── Form helpers ───────────────────────────────────────────── */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-error {
+  background: var(--red-dim);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--red);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ── Expense item actions ───────────────────────────────────── */
+.expense-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.btn-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.btn-delete:hover {
+  background: var(--red-dim);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: var(--red);
+}
+
+/* ── Role badge in group header ─────────────────────────────── */
+.group-detail-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.badge-admin {
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.badge-member {
+  background: var(--glass-white-md);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+/* ── Member name row ────────────────────────────────────────── */
+.member-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ── Role pills next to member names ───────────────────────── */
+.member-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pill-admin {
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.pill-member {
+  background: var(--glass-white);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+.pill-you {
+  background: var(--accent-dim);
+  color: var(--accent-soft);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+}
+
+/* ── Member right — balance + remove button ─────────────────── */
+.member-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Remove member button ───────────────────────────────────── */
+.btn-remove-member {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.btn-remove-member:hover {
+  background: var(--red-dim);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: var(--red);
+}
+
+/* ── "Added by you" label ───────────────────────────────────── */
+.expense-added-by-you {
+  color: var(--accent-soft);
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .split-type-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-large {
+    max-height: 95vh;
+  }
+}

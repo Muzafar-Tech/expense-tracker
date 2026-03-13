@@ -1,0 +1,326 @@
+/* client/src/pages/AdminPage/Admin.css */
+/* Shared styles imported by every admin page */
+
+/* ── Page header ──────────────────────────────────────────── */
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  animation: fadeUp 0.5s 0.1s ease both;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-topbar-left { display: flex; flex-direction: column; gap: 4px; }
+
+.admin-page-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.admin-page-subtitle { font-size: 13px; color: var(--text-muted); }
+
+.admin-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Admin badge ──────────────────────────────────────────── */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(251,191,36,0.1);
+  border: 1px solid rgba(251,191,36,0.25);
+  border-radius: var(--radius-md);
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Stats grid ───────────────────────────────────────────── */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+  animation: fadeUp 0.5s 0.15s ease both;
+}
+
+/* override for pages that only have 3 stat cards */
+.admin-stats-grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* override for pages that only have 2 stat cards */
+.admin-stats-grid.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.admin-stat-card {
+  background: var(--glass-white);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--spring);
+  min-width: 0;
+}
+.admin-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.12), transparent);
+}
+.admin-stat-card:hover {
+  transform: translateY(-4px);
+  background: var(--glass-white-md);
+  border-color: var(--glass-border-hi);
+}
+
+.admin-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.admin-stat-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  word-break: break-word;
+}
+
+.admin-stat-card.amber { border-color: rgba(251,191,36,0.2); }
+.admin-stat-card.amber .admin-stat-value { color: var(--amber); }
+.admin-stat-card.blue  { border-color: rgba(79,142,247,0.2); }
+.admin-stat-card.blue  .admin-stat-value { color: var(--accent-soft); }
+.admin-stat-card.green { border-color: rgba(52,211,153,0.2); }
+.admin-stat-card.green .admin-stat-value { color: var(--green); }
+.admin-stat-card.red   { border-color: rgba(248,113,113,0.2); }
+.admin-stat-card.red   .admin-stat-value { color: var(--red); }
+
+/* ── Table container ──────────────────────────────────────── */
+.admin-table-container {
+  background: var(--glass-white);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden; /* clips border-radius on the scroll wrapper */
+  animation: fadeUp 0.5s 0.2s ease both;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-table-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.admin-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Scroll wrapper — MUST wrap every <table> ─────────────── */
+/*
+  The container has overflow:hidden to clip border-radius.
+  The scroll wrapper INSIDE has overflow-x:auto so the table
+  scrolls horizontally on mobile without bleeding outside the card.
+*/
+.admin-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px; /* never squish below this — forces scroll on small screens */
+}
+
+.admin-table thead {
+  background: rgba(251,191,36,0.05);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.admin-table th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 13px 16px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap; /* keep all cells on one line — scroll handles overflow */
+}
+
+/* description/detail cells: allow wrapping but cap width */
+.admin-table td.wrap-cell {
+  white-space: normal;
+  max-width: 200px;
+  word-break: break-word;
+}
+
+.admin-table tbody tr {
+  transition: background-color var(--transition);
+  cursor: pointer;
+}
+.admin-table tbody tr:hover {
+  background: rgba(251,191,36,0.03);
+}
+
+/* ── Action buttons inside table ──────────────────────────── */
+.admin-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  border: none;
+  background: var(--glass-white);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.admin-action-btn:hover {
+  background: var(--glass-white-md);
+  color: var(--text-primary);
+}
+.admin-action-btn.danger {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(248,113,113,0.2);
+}
+.admin-action-btn.danger:hover {
+  background: rgba(248,113,113,0.2);
+  border-color: var(--red);
+}
+.admin-action-btn.success {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+.admin-action-btn.success:hover {
+  background: rgba(52,211,153,0.2);
+  border-color: var(--green);
+}
+.admin-action-btn.primary {
+  background: var(--accent-dim);
+  color: var(--accent-soft);
+  border: 1px solid rgba(79,142,247,0.2);
+}
+.admin-action-btn.primary:hover {
+  background: rgba(79,142,247,0.2);
+  border-color: var(--accent-soft);
+}
+
+/* ── Empty / loading states ───────────────────────────────── */
+.admin-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.admin-empty-state svg { margin-bottom: 14px; }
+.admin-empty-text { font-size: 14px; color: var(--text-muted); }
+
+.admin-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+}
+.admin-loading .spinner {
+  width: 32px; height: 32px;
+  border: 2px solid rgba(255,255,255,0.06);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 12px;
+}
+.admin-loading p { font-size: 13px; color: var(--text-muted); }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .admin-stats-grid                { grid-template-columns: repeat(3, 1fr); }
+  .admin-stats-grid.cols-3         { grid-template-columns: repeat(3, 1fr); }
+  .admin-stats-grid.cols-2         { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .admin-stats-grid,
+  .admin-stats-grid.cols-3         { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+  .admin-stats-grid.cols-2         { grid-template-columns: repeat(2, 1fr); }
+
+  .admin-stat-card                 { padding: 14px 16px; }
+  .admin-stat-value                { font-size: 20px; }
+
+  .admin-topbar                    { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+  .admin-page-title                { font-size: 22px; }
+
+  .admin-table-header              { padding: 14px 16px; }
+  .admin-table th,
+  .admin-table td                  { padding: 10px 12px; font-size: 12px; }
+  .admin-table-actions             { width: 100%; }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .admin-stats-grid,
+  .admin-stats-grid.cols-3,
+  .admin-stats-grid.cols-2         { gap: 8px; }
+  .admin-stat-value                { font-size: 18px; }
+  .admin-stat-label                { font-size: 9px; }
+  .admin-stat-card                 { padding: 12px 14px; }
+}

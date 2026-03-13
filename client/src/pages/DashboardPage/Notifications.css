@@ -1,0 +1,322 @@
+/* ═══════════════════════════════════════════════════════════════
+   Notifications.css — Glass Dark Theme
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Notification List ──────────────────────────────────────── */
+.notif-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.notif-page-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--glass-white);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-left: 4px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glossy top edge */
+.notif-page-item::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+.notif-page-item:hover {
+  background: var(--glass-white-md);
+  border-color: var(--glass-border-hi);
+  transform: translateX(4px);
+}
+
+.notif-page-unread {
+  border-left-color: var(--accent-soft);
+  background: var(--accent-dim);
+}
+
+.notif-page-unread:hover {
+  background: rgba(79, 142, 247, 0.16);
+}
+
+/* ── Icon ───────────────────────────────────────────────────── */
+.notif-page-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* ── Body ───────────────────────────────────────────────────── */
+.notif-page-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-page-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.notif-page-type-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.notif-page-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.notif-page-message {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 4px;
+  line-height: 1.5;
+}
+
+.notif-page-detail {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+
+.notif-page-sender {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.notif-page-sender strong {
+  color: var(--text-secondary);
+}
+
+.notif-page-group-badge {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 10px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--accent-soft);
+  font-weight: 500;
+}
+
+/* ── Delete button ──────────────────────────────────────────── */
+.notif-page-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: color var(--transition), background var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notif-page-delete:hover {
+  color: var(--red);
+  background: var(--red-dim);
+}
+
+/* ── Notification count badge ───────────────────────────────── */
+.notif-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--accent-soft);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--transition);
+}
+
+.notif-count-badge:hover {
+  background: rgba(79, 142, 247, 0.2);
+}
+
+/* ── Role badges (Groups page) ──────────────────────────────── */
+.group-role-badge-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.role-admin {
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.role-member {
+  background: var(--accent-dim);
+  color: var(--accent-soft);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+}
+
+/* ── Pending settlement styles (Balances.jsx) ───────────────── */
+.pending-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--amber-dim);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--amber);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.pending-request-card {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.pending-request-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-soft);
+  font-size: 13px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pending-note {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pending-request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-confirm-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  background: var(--green-dim);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--green);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-confirm-small:hover { background: rgba(52, 211, 153, 0.2); border-color: var(--green); }
+
+.btn-reject-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  background: var(--red-dim);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-reject-small:hover { background: rgba(248, 113, 113, 0.2); border-color: var(--red); }
+
+/* ── Activity unread dot ────────────────────────────────────── */
+.activity-unread .activity-emoji::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--accent-soft);
+  border-radius: 50%;
+  margin-left: 3px;
+  vertical-align: top;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* ── Activity related user pill ─────────────────────────────── */
+.activity-related-user {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--accent-soft);
+}
+
+/* ── Sidebar overlay (mobile) ───────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 4, 8, 0.7);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 999;
+  }
+}
+
+/* ── Header right actions ───────────────────────────────────── */
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
