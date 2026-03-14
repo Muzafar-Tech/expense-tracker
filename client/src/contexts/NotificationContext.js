@@ -15,7 +15,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
     try {
       setLoadingNotifs(true);
-      const res = await fetch("http://localhost:5000/api/notifications", {
+      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/notifications", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -42,7 +42,7 @@ export const NotificationProvider = ({ children }) => {
   const markAllRead = async () => {
     if (!token || unreadCount === 0) return;
     try {
-      await fetch("http://localhost:5000/api/notifications/read-all", {
+      await fetch("https://expense-tracker-backend-74i4.onrender.com/api/notifications/read-all", {
         method:  "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -57,7 +57,7 @@ export const NotificationProvider = ({ children }) => {
   const deleteNotification = async (id) => {
     if (!token) return;
     try {
-      await fetch(`http://localhost:5000/api/notifications/${id}`, {
+      await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/notifications/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -75,7 +75,7 @@ export const NotificationProvider = ({ children }) => {
   const clearAll = async () => {
     if (!token) return;
     try {
-      await fetch("http://localhost:5000/api/notifications/clear-all", {
+      await fetch("https://expense-tracker-backend-74i4.onrender.com/api/notifications/clear-all", {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

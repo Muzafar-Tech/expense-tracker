@@ -21,7 +21,7 @@ function Groups() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/groups", {
+      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/groups", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -39,7 +39,7 @@ function Groups() {
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:5000/api/groups", {
+      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/groups", {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: newGroupName, description: newGroupDesc }),
@@ -61,7 +61,7 @@ function Groups() {
   const handleDeleteGroup = async (id) => {
     if (!window.confirm("Delete this group? This will remove all expenses and balances.")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/groups/${id}`, {
+      const res = await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/groups/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

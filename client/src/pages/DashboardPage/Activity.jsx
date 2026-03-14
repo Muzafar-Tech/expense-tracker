@@ -53,8 +53,8 @@ function Activity() {
       setLoading(true);
       setError(null);
       const url = type === "all"
-        ? "http://localhost:5000/api/activity"
-        : `http://localhost:5000/api/activity?type=${type}`;
+        ? "https://expense-tracker-backend-74i4.onrender.com/api/activity"
+        : `https://expense-tracker-backend-74i4.onrender.com/api/activity?type=${type}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -73,7 +73,7 @@ function Activity() {
   const handleDeleteActivity = async (id) => {
     if (!window.confirm("Delete this activity from your history?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/activity/${id}`, {
+      const res = await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/activity/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

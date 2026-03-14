@@ -35,7 +35,7 @@ function AllExpenses() {
       setLoading(true);
       setError(null); // reset error on each attempt
 
-      const res = await fetch("http://localhost:5000/api/expenses", {
+      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/expenses", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -70,7 +70,7 @@ function AllExpenses() {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/expenses/${id}`, {
+      const res = await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/expenses/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

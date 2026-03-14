@@ -64,7 +64,7 @@ export default function NotificationBell({ token, onSettleAction }) {
     if (!notif.balanceId || !notif.settlementId) return;
     setAction(notif.settlementId);
     try {
-      const res = await fetch("http://localhost:5000/api/balances/confirm", {
+      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/balances/confirm", {
         method:  "POST",
         headers: {
           "Content-Type": "application/json",
@@ -98,7 +98,7 @@ export default function NotificationBell({ token, onSettleAction }) {
     if (!notif.balanceId || !notif.settlementId) return;
     setAction(notif.settlementId);
     try {
-      const res = await fetch("http://localhost:5000/api/balances/reject", {
+      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/balances/reject", {
         method:  "POST",
         headers: {
           "Content-Type": "application/json",
