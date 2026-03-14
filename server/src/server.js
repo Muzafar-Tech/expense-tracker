@@ -8,7 +8,7 @@ import session  from "express-session";
 import passport from "passport";
 
 import connectDB from "./config/db.js";
-import adminRoutes from "./routes/adminRoutes.js";
+import adminRoutes        from "./routes/adminRoutes.js";
 import authRoutes         from "./routes/authRoutes.js";
 import googleAuthRoutes   from "./routes/googleAuth.js";
 import groupRoutes        from "./routes/groupRoutes.js";
@@ -25,9 +25,19 @@ const app = express();
 // Connect MongoDB
 connectDB();
 
-// Middleware
+// ── CORS ─────────────────────────────────────────────────────
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin:      "http://localhost:3000",
+  origin: (origin, callback) => {
+    // allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
   credentials: true,
 }));
 
@@ -42,11 +52,10 @@ app.use(
   })
 );
 
-
 app.use(passport.initialize());
 app.use(passport.session());
 
-/* ── Routes ────────────────────────────────────────────────── */
+/* ── Routes ─────────────────────────────────────────────────── */
 app.use("/api/auth",          authRoutes);
 app.use("/api/auth",          googleAuthRoutes);
 app.use("/api/groups",        groupRoutes);
@@ -54,8 +63,9 @@ app.use("/api/expenses",      expenseRoutes);
 app.use("/api/balances",      balanceRoutes);
 app.use("/api/activity",      activityRoutes);
 app.use("/api/dashboard",     dashboardRoutes);
-app.use("/api/notifications", notificationRoutes);  // ← NEW
-app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin",         adminRoutes);
+
 // Health check
 app.get("/", (req, res) => res.send("API Running"));
 
