@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "./AuthPage.css";
-import axios from "axios";
+import axios from "../../api/axiosConfig";
 
 const EyeIcon = ({ open }) => (
   <svg
