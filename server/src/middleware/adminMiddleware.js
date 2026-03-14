@@ -22,9 +22,9 @@ const adminMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: "User not found" });
     }
 
-    if (user.token && user.token !== token) {
-      return res.status(401).json({ message: "Token invalid or user logged out" });
-    }
+    // ✅ REMOVED: token match check (user.token !== token)
+    // Removed to support multi-device login — JWT is verified
+    // by secret key only, no DB token comparison needed.
 
     // -------- ADMIN CHECK --------
     if (user.role !== "admin") {
