@@ -31,12 +31,10 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // -------- CHECK TOKEN MATCH (if you're storing tokens in user model) --------
-    if (user.token && user.token !== token) {
-      return res.status(401).json({
-        message: "Token invalid or user logged out"
-      });
-    }
+    // ✅ REMOVED: token match check (user.token !== token)
+    // That check blocked multi-device login by only allowing
+    // one active token at a time. JWT is stateless — any valid
+    // token signed with JWT_SECRET is accepted from any device.
 
     // attach user to request
     req.user = user;
@@ -50,5 +48,4 @@ export const protect = async (req, res, next) => {
   }
 };
 
-// Add a default export as well for flexibility
 export default protect;

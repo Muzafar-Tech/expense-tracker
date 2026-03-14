@@ -59,7 +59,7 @@ export const registerUser = async (req, res) => {
         _id:   user._id,
         name:  user.name,
         email: user.email,
-        role:  user.role     // ← always "user" for new registrations
+        role:  user.role
       }
     });
 
@@ -106,10 +106,9 @@ export const loginUser = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // -------- SAVE TOKEN IN DATABASE --------
-
-    user.token = token;
-    await user.save();
+    // ✅ REMOVED: user.token = token / await user.save()
+    // Token is stateless — no need to store it in DB
+    // This allows login from multiple devices simultaneously
 
     res.json({
       message: "Login successful",
@@ -118,7 +117,7 @@ export const loginUser = async (req, res) => {
         _id:   user._id,
         name:  user.name,
         email: user.email,
-        role:  user.role     // ← ADD THIS
+        role:  user.role
       }
     });
 

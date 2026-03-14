@@ -167,14 +167,14 @@ export default function AuthPage() {
                 <span>Remember me</span>
               </label>
 
-              <button
+              {/* <button
                 type="button"
                 className="auth-forgot-btn"
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#c4b5fd")}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "#a78bfa")}
               >
                 Forgot password?
-              </button>
+              </button> */}
             </div>
 
             {/* Submit */}

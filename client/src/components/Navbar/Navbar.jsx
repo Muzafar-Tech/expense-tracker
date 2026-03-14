@@ -4,7 +4,7 @@ import { Link, NavLink } from "react-router-dom";
 
 function Navbar() {
   return (
-    <header className="border-b border-slate-200 bg-white/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
       <nav className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Brand */}
         <Link to="/" className="flex items-center gap-2">

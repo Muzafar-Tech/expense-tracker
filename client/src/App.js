@@ -58,7 +58,7 @@ function AppContent() {
   const isAdminRoute     = location.pathname.startsWith("/admin");
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="bg-slate-50 text-slate-900">
       {showNavbar && <Navbar />}
 
       {isAdminRoute ? (
@@ -92,7 +92,7 @@ function AppContent() {
         </UserRoute>
 
       ) : (
-        <main className="max-w-5xl mx-auto px-4 py-8">
+        <main >
           <Routes>
             <Route path="/"     element={<Home />}     />
             <Route path="/auth" element={<AuthPage />} />

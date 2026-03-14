@@ -18,7 +18,7 @@ html, body {
   font-family: 'Georgia', serif;
   padding: 24px;
   position: relative;
-  border: 2px solid rgb(185, 182, 10);
+  /* border: 2px solid rgb(185, 182, 10); */
   border-radius: 0;
 }
 
