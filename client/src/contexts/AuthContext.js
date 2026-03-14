@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     }
     const fetchUser = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/auth/me", {
+        const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
