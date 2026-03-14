@@ -13,7 +13,7 @@ try {
   useNotifications = () => ({ unreadCount: 0 });
 }
 
-const API = "http://localhost:5000/api";
+const API = "https://expense-tracker-backend-74i4.onrender.com/api";
 
 function Dashboard() {
   const [groups, setGroups]                 = useState([]);

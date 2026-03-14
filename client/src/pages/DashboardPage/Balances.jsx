@@ -13,7 +13,7 @@ import {
 import DashboardLayout from "./DashboardLayout";
 import "./Dashboard.css";
 
-const API = "http://localhost:5000/api";
+const API = "https://expense-tracker-backend-74i4.onrender.com/api";
 const EPSILON = 0.001;
 
 const fmt = (n) => Math.abs(Number(n || 0)).toLocaleString();
