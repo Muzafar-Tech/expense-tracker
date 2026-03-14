@@ -45,20 +45,20 @@ export default function AuthPage() {
   // }, []);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await axios.post("http://localhost:5000/api/auth/login", {
-        email: form.email,
-        password: form.password,
-      });
-      const token = response.data.token;
-      localStorage.setItem("token", token);
-      window.location.href = "/dashboard";
-    } catch (error) {
-      console.error(error);
-      alert(error.response?.data?.message || "Invalid credentials");
-    }
-  };
+  e.preventDefault();
+  try {
+    const response = await axios.post("/auth/login", {
+      email: form.email,
+      password: form.password,
+    });
+    const token = response.data.token;
+    localStorage.setItem("token", token);
+    window.location.href = "/dashboard";
+  } catch (error) {
+    console.error(error);
+    alert(error.response?.data?.message || "Invalid credentials");
+  }
+};
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
