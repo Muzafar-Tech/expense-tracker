@@ -4,11 +4,10 @@ import { createContext, useContext, useState, useEffect } from "react";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken]       = useState(() => localStorage.getItem("token"));
+  const [token, setToken]             = useState(() => localStorage.getItem("token"));
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
-  // Fetch the logged-in user's profile whenever token changes
   useEffect(() => {
     if (!token) {
       setCurrentUser(null);
@@ -17,14 +16,13 @@ export const AuthProvider = ({ children }) => {
     }
     const fetchUser = async () => {
       try {
-        const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/auth/me", {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
           setCurrentUser(data);
         } else {
-          // Token invalid — clear it
           logout();
         }
       } catch (err) {
@@ -54,7 +52,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Convenience hook
 export const useAuth = () => useContext(AuthContext);
 
 export default AuthContext;

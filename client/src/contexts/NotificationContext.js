@@ -4,18 +4,19 @@ import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext(null);
 
+const API = process.env.REACT_APP_API_URL;
+
 export const NotificationProvider = ({ children }) => {
   const { token } = useAuth();
-  const [unreadCount, setUnreadCount]         = useState(0);
-  const [notifications, setNotifications]     = useState([]);
-  const [loadingNotifs, setLoadingNotifs]     = useState(false);
+  const [unreadCount,    setUnreadCount]    = useState(0);
+  const [notifications,  setNotifications]  = useState([]);
+  const [loadingNotifs,  setLoadingNotifs]  = useState(false);
 
-  // Fetch notifications + unread count
   const fetchNotifications = useCallback(async () => {
     if (!token) return;
     try {
       setLoadingNotifs(true);
-      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/notifications", {
+      const res = await fetch(`${API}/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -30,7 +31,6 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Poll every 30 seconds for new notifications
   useEffect(() => {
     if (!token) return;
     fetchNotifications();
@@ -38,11 +38,10 @@ export const NotificationProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [token, fetchNotifications]);
 
-  // Mark all as read — called when user opens the bell dropdown
   const markAllRead = async () => {
     if (!token || unreadCount === 0) return;
     try {
-      await fetch("https://expense-tracker-backend-74i4.onrender.com/api/notifications/read-all", {
+      await fetch(`${API}/notifications/read-all`, {
         method:  "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -53,16 +52,14 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // Delete a single notification
   const deleteNotification = async (id) => {
     if (!token) return;
     try {
-      await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/notifications/${id}`, {
+      await fetch(`${API}/notifications/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications((prev) => prev.filter((n) => n._id !== id));
-      // Recalculate unread count
       setUnreadCount((prev) =>
         Math.max(0, prev - (notifications.find((n) => n._id === id && !n.isRead) ? 1 : 0))
       );
@@ -71,11 +68,10 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // Clear all notifications
   const clearAll = async () => {
     if (!token) return;
     try {
-      await fetch("https://expense-tracker-backend-74i4.onrender.com/api/notifications/clear-all", {
+      await fetch(`${API}/notifications/clear-all`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

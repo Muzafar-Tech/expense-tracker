@@ -5,14 +5,16 @@ import { Users, Plus, Search, ArrowRight, Trash2, Crown, User } from "lucide-rea
 import DashboardLayout from "./DashboardLayout";
 import "./Dashboard.css";
 
+const API = process.env.REACT_APP_API_URL;
+
 function Groups() {
-  const [groups, setGroups]             = useState([]);
-  const [searchQuery, setSearchQuery]   = useState("");
+  const [groups, setGroups]                   = useState([]);
+  const [searchQuery, setSearchQuery]         = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupDesc, setNewGroupDesc] = useState("");
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
+  const [newGroupName, setNewGroupName]       = useState("");
+  const [newGroupDesc, setNewGroupDesc]       = useState("");
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState(null);
 
   const token = localStorage.getItem("token");
 
@@ -21,7 +23,7 @@ function Groups() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/groups", {
+      const res = await fetch(`${API}/groups`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -39,7 +41,7 @@ function Groups() {
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/groups", {
+      const res = await fetch(`${API}/groups`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: newGroupName, description: newGroupDesc }),
@@ -61,7 +63,7 @@ function Groups() {
   const handleDeleteGroup = async (id) => {
     if (!window.confirm("Delete this group? This will remove all expenses and balances.")) return;
     try {
-      const res = await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/groups/${id}`, {
+      const res = await fetch(`${API}/groups/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -92,7 +94,6 @@ function Groups() {
         </button>
       </div>
 
-      {/* Search */}
       <div className="search-container">
         <Search size={20} className="search-icon" />
         <input
@@ -119,8 +120,6 @@ function Groups() {
               const isAdmin = group.userRole === "admin";
               return (
                 <div key={group._id} className="group-card-large">
-
-                  {/* Role badge */}
                   <div className="group-role-badge-row">
                     {isAdmin ? (
                       <span className="role-badge role-admin">
@@ -138,10 +137,8 @@ function Groups() {
                       <div className="group-icon-large"><Users size={32} /></div>
                       <ArrowRight size={20} className="arrow-icon" />
                     </div>
-
                     <h3 className="group-name-large">{group.name}</h3>
                     <p className="group-description">{group.description || "No description"}</p>
-
                     <div className="group-stats">
                       <div className="stat-item">
                         <span className="stat-label">Members</span>
@@ -160,7 +157,6 @@ function Groups() {
                     </div>
                   </Link>
 
-                  {/* Delete — admin only */}
                   {isAdmin && (
                     <div className="group-delete-container">
                       <button
@@ -186,7 +182,6 @@ function Groups() {
         </div>
       )}
 
-      {/* Create Group Modal */}
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

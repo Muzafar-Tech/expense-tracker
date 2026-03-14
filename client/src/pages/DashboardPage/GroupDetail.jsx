@@ -9,7 +9,7 @@ import DashboardLayout from "./DashboardLayout";
 import "./Dashboard.css";
 import "./GroupDetail.css";
 
-const API = "https://expense-tracker-backend-74i4.onrender.com/api";
+const API = process.env.REACT_APP_API_URL;
 
 function GroupDetail() {
   const params  = useParams();

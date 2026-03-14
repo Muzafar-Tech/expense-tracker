@@ -4,10 +4,12 @@ import { Calendar, Trash2 } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
 import "./Dashboard.css";
 
+const API = process.env.REACT_APP_API_URL;
+
 const ICON_MAP = {
   expense_added:      "💰",
   expense_deleted:    "🗑️",
-  payment_made:       "💸",  // legacy type — kept for old DB records
+  payment_made:       "💸",
   payment_requested:  "📤",
   payment_confirmed:  "✅",
   payment_rejected:   "❌",
@@ -18,19 +20,14 @@ const ICON_MAP = {
   group_left:         "🚪",
 };
 
-// "Payments" filter covers both legacy (payment_made) and new (payment_confirmed)
-// by sending no type filter and letting the UI show all payment-related items,
-// OR we keep two entries. Here we use a comma-separated multi-type param
-// that the backend can handle, with graceful fallback.
 const FILTERS = [
   { label: "All",       value: "all"              },
   { label: "Expenses",  value: "expense_added"    },
-  { label: "Payments",  value: "payment_confirmed,payment_made" }, // covers old + new records
+  { label: "Payments",  value: "payment_confirmed,payment_made" },
   { label: "Requests",  value: "payment_requested" },
   { label: "Groups",    value: "group_created"    },
 ];
 
-// Payment-type values — used to suppress "(group deleted)" badge
 const PAYMENT_TYPES = new Set([
   "payment_made",
   "payment_confirmed",
@@ -53,8 +50,8 @@ function Activity() {
       setLoading(true);
       setError(null);
       const url = type === "all"
-        ? "https://expense-tracker-backend-74i4.onrender.com/api/activity"
-        : `https://expense-tracker-backend-74i4.onrender.com/api/activity?type=${type}`;
+        ? `${API}/activity`
+        : `${API}/activity?type=${type}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -73,7 +70,7 @@ function Activity() {
   const handleDeleteActivity = async (id) => {
     if (!window.confirm("Delete this activity from your history?")) return;
     try {
-      const res = await fetch(`https://expense-tracker-backend-74i4.onrender.com/api/activity/${id}`, {
+      const res = await fetch(`${API}/activity/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -85,12 +82,11 @@ function Activity() {
     }
   };
 
-  // Bug 1 fix: falls back to activity.time (string) if createdAt is absent
   const formatTime = (createdAt, fallbackTime) => {
     const source = createdAt || fallbackTime;
     if (!source) return "";
     const d    = new Date(source);
-    if (isNaN(d.getTime())) return String(source); // raw string fallback
+    if (isNaN(d.getTime())) return String(source);
     const diff = Math.floor((Date.now() - d) / 1000);
     if (diff < 60)    return "just now";
     if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
@@ -107,7 +103,6 @@ function Activity() {
         </div>
       </div>
 
-      {/* Filter Buttons */}
       <div className="filter-container">
         {FILTERS.map((f) => (
           <button
@@ -149,7 +144,6 @@ function Activity() {
                   <div className="activity-header">
                     <h3 className="activity-description">{activity.description}</h3>
                     <div className="activity-header-right">
-                      {/* Bug 1 fix: pass both createdAt and legacy time field */}
                       <span className="activity-time">
                         {formatTime(activity.createdAt, activity.time)}
                       </span>
@@ -167,14 +161,12 @@ function Activity() {
                     <p className="activity-detail">{activity.detail}</p>
                   )}
 
-                  {/* Related user pill — shows the OTHER person involved */}
                   {activity.relatedUser && (
                     <span className="activity-related-user">
                       👤 {activity.relatedUser?.name || "Someone"}
                     </span>
                   )}
 
-                  {/* Group badge — graceful when group is deleted */}
                   {activity.group ? (
                     <span className="activity-group-badge">
                       {activity.group?.name || activity.group}

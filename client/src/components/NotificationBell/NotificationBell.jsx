@@ -4,7 +4,9 @@ import { Bell, X, CheckCircle, XCircle } from "lucide-react";
 import { useNotifications } from "../../contexts/NotificationContext";
 import "./NotificationBell.css";
 
-/* ── Icon helper — emoji per notification type ─────────────── */
+const API = process.env.REACT_APP_API_URL;
+
+/* ── Icon helper ───────────────────────────────────────────── */
 const getIcon = (type) => {
   const map = {
     payment_request:    { emoji: "💸", cls: "amber"  },
@@ -22,9 +24,9 @@ const getIcon = (type) => {
 /* ── Time formatter ────────────────────────────────────────── */
 const timeAgo = (dateStr) => {
   const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-  if (diff < 60)       return "just now";
-  if (diff < 3600)     return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400)    return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 60)    return "just now";
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
@@ -39,11 +41,10 @@ export default function NotificationBell({ token, onSettleAction }) {
     fetchNotifications,
   } = useNotifications();
 
-  const [open, setOpen]             = useState(false);
-  const [actionLoading, setAction]  = useState(null); // settlementId being actioned
-  const dropdownRef                 = useRef(null);
+  const [open, setOpen]            = useState(false);
+  const [actionLoading, setAction] = useState(null);
+  const dropdownRef                = useRef(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -59,12 +60,11 @@ export default function NotificationBell({ token, onSettleAction }) {
     if (!open && unreadCount > 0) markAllRead();
   };
 
-  // Inline Confirm from the bell dropdown
   const handleConfirm = async (notif) => {
     if (!notif.balanceId || !notif.settlementId) return;
     setAction(notif.settlementId);
     try {
-      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/balances/confirm", {
+      const res = await fetch(`${API}/balances/confirm`, {
         method:  "POST",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +79,6 @@ export default function NotificationBell({ token, onSettleAction }) {
       if (res.ok) {
         await deleteNotification(notif._id);
         await fetchNotifications();
-        // Tell Balances.jsx to re-fetch
         if (onSettleAction) onSettleAction();
         window.dispatchEvent(new CustomEvent("balanceUpdated"));
       } else {
@@ -93,12 +92,11 @@ export default function NotificationBell({ token, onSettleAction }) {
     }
   };
 
-  // Inline Reject from the bell dropdown
   const handleReject = async (notif) => {
     if (!notif.balanceId || !notif.settlementId) return;
     setAction(notif.settlementId);
     try {
-      const res = await fetch("https://expense-tracker-backend-74i4.onrender.com/api/balances/reject", {
+      const res = await fetch(`${API}/balances/reject`, {
         method:  "POST",
         headers: {
           "Content-Type": "application/json",
@@ -128,7 +126,6 @@ export default function NotificationBell({ token, onSettleAction }) {
   return (
     <div className="notif-bell-wrapper" ref={dropdownRef}>
 
-      {/* Bell button */}
       <button className="notif-bell-btn" onClick={handleOpen} title="Notifications">
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -136,10 +133,8 @@ export default function NotificationBell({ token, onSettleAction }) {
         )}
       </button>
 
-      {/* Dropdown */}
       {open && (
         <div className="notif-dropdown">
-
           <div className="notif-dropdown-header">
             <h4>Notifications {unreadCount > 0 && `(${unreadCount} new)`}</h4>
             {notifications.length > 0 && (
@@ -160,7 +155,7 @@ export default function NotificationBell({ token, onSettleAction }) {
             <div className="notif-list">
               {notifications.map((notif) => {
                 const { emoji, cls } = getIcon(notif.type);
-                const isPending = notif.type === "payment_request" && notif.settlementId;
+                const isPending   = notif.type === "payment_request" && notif.settlementId;
                 const isActioning = actionLoading === notif.settlementId;
 
                 return (
@@ -177,7 +172,6 @@ export default function NotificationBell({ token, onSettleAction }) {
                       )}
                       <span className="notif-time">{timeAgo(notif.createdAt)}</span>
 
-                      {/* Inline confirm/reject for payment requests */}
                       {isPending && (
                         <div className="notif-actions">
                           <button
