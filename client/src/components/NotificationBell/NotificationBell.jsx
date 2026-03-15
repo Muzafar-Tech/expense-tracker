@@ -1,5 +1,6 @@
 // client/src/components/NotificationBell/NotificationBell.jsx
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Bell, X, CheckCircle, XCircle } from "lucide-react";
 import { useNotifications } from "../../contexts/NotificationContext";
 import "./NotificationBell.css";
@@ -43,11 +44,17 @@ export default function NotificationBell({ token, onSettleAction }) {
 
   const [open, setOpen]            = useState(false);
   const [actionLoading, setAction] = useState(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+  const bellRef                    = useRef(null);
   const dropdownRef                = useRef(null);
 
+  // Close on outside click
   useEffect(() => {
     const handleClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+        bellRef.current && !bellRef.current.contains(e.target)
+      ) {
         setOpen(false);
       }
     };
@@ -55,7 +62,15 @@ export default function NotificationBell({ token, onSettleAction }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Calculate dropdown position from bell button
   const handleOpen = () => {
+    if (!open && bellRef.current) {
+      const rect = bellRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top:   rect.bottom + 10,
+        right: window.innerWidth - rect.right,
+      });
+    }
     setOpen((prev) => !prev);
     if (!open && unreadCount > 0) markAllRead();
   };
@@ -123,91 +138,107 @@ export default function NotificationBell({ token, onSettleAction }) {
     }
   };
 
-  return (
-    <div className="notif-bell-wrapper" ref={dropdownRef}>
+  /* ── Dropdown rendered via Portal directly into document.body ── */
+  const dropdown = open ? createPortal(
+    <div
+      className="notif-dropdown"
+      ref={dropdownRef}
+      style={{
+        position: "fixed",
+        top:      dropdownPos.top,
+        right:    dropdownPos.right,
+      }}
+    >
+      <div className="notif-dropdown-header">
+        <h4>Notifications {unreadCount > 0 && `(${unreadCount} new)`}</h4>
+        {notifications.length > 0 && (
+          <button className="notif-clear-btn" onClick={clearAll}>
+            Clear all
+          </button>
+        )}
+      </div>
 
-      <button className="notif-bell-btn" onClick={handleOpen} title="Notifications">
+      {loadingNotifs ? (
+        <div className="notif-loading">Loading...</div>
+      ) : notifications.length === 0 ? (
+        <div className="notif-empty">
+          <span style={{ fontSize: 28 }}>🔔</span>
+          <span>No notifications yet</span>
+        </div>
+      ) : (
+        <div className="notif-list">
+          {notifications.map((notif) => {
+            const { emoji, cls } = getIcon(notif.type);
+            const isPending   = notif.type === "payment_request" && notif.settlementId;
+            const isActioning = actionLoading === notif.settlementId;
+
+            return (
+              <div
+                key={notif._id}
+                className={`notif-item ${!notif.isRead ? "unread" : ""}`}
+              >
+                <div className={`notif-icon ${cls}`}>{emoji}</div>
+
+                <div className="notif-body">
+                  <p className="notif-message">{notif.message}</p>
+                  {notif.detail && (
+                    <p className="notif-detail">{notif.detail}</p>
+                  )}
+                  <span className="notif-time">{timeAgo(notif.createdAt)}</span>
+
+                  {isPending && (
+                    <div className="notif-actions">
+                      <button
+                        className="notif-action-confirm"
+                        disabled={isActioning}
+                        onClick={() => handleConfirm(notif)}
+                      >
+                        <CheckCircle size={11} style={{ marginRight: 3 }} />
+                        {isActioning ? "..." : "Confirm"}
+                      </button>
+                      <button
+                        className="notif-action-reject"
+                        disabled={isActioning}
+                        onClick={() => handleReject(notif)}
+                      >
+                        <XCircle size={11} style={{ marginRight: 3 }} />
+                        {isActioning ? "..." : "Reject"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  className="notif-delete-btn"
+                  onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
+                  title="Dismiss"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div className="notif-bell-wrapper">
+      <button
+        className={`notif-bell-btn ${unreadCount > 0 ? "has-unread" : ""}`}
+        onClick={handleOpen}
+        ref={bellRef}
+        title="Notifications"
+      >
         <Bell size={18} />
         {unreadCount > 0 && (
           <span className="notif-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
         )}
       </button>
 
-      {open && (
-        <div className="notif-dropdown">
-          <div className="notif-dropdown-header">
-            <h4>Notifications {unreadCount > 0 && `(${unreadCount} new)`}</h4>
-            {notifications.length > 0 && (
-              <button className="notif-clear-btn" onClick={clearAll}>
-                Clear all
-              </button>
-            )}
-          </div>
-
-          {loadingNotifs ? (
-            <div className="notif-loading">Loading...</div>
-          ) : notifications.length === 0 ? (
-            <div className="notif-empty">
-              <span style={{ fontSize: 28 }}>🔔</span>
-              <span>No notifications yet</span>
-            </div>
-          ) : (
-            <div className="notif-list">
-              {notifications.map((notif) => {
-                const { emoji, cls } = getIcon(notif.type);
-                const isPending   = notif.type === "payment_request" && notif.settlementId;
-                const isActioning = actionLoading === notif.settlementId;
-
-                return (
-                  <div
-                    key={notif._id}
-                    className={`notif-item ${!notif.isRead ? "unread" : ""}`}
-                  >
-                    <div className={`notif-icon ${cls}`}>{emoji}</div>
-
-                    <div className="notif-body">
-                      <p className="notif-message">{notif.message}</p>
-                      {notif.detail && (
-                        <p className="notif-detail">{notif.detail}</p>
-                      )}
-                      <span className="notif-time">{timeAgo(notif.createdAt)}</span>
-
-                      {isPending && (
-                        <div className="notif-actions">
-                          <button
-                            className="notif-action-confirm"
-                            disabled={isActioning}
-                            onClick={() => handleConfirm(notif)}
-                          >
-                            <CheckCircle size={11} style={{ marginRight: 3 }} />
-                            {isActioning ? "..." : "Confirm"}
-                          </button>
-                          <button
-                            className="notif-action-reject"
-                            disabled={isActioning}
-                            onClick={() => handleReject(notif)}
-                          >
-                            <XCircle size={11} style={{ marginRight: 3 }} />
-                            {isActioning ? "..." : "Reject"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      className="notif-delete-btn"
-                      onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
-                      title="Dismiss"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }

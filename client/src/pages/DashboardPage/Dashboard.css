@@ -2207,3 +2207,108 @@ select.filter-select:focus {
   background: var(--accent-dim) !important;
   border-color: rgba(79, 142, 247, 0.4) !important;
 }
+
+
+
+
+/* ── All Expenses mobile overflow final fix ──────────────────── */
+@media (max-width: 768px) {
+
+  /* Prevent ANY horizontal overflow on the whole page */
+  .main-content {
+    overflow-x: hidden;
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Header: always stacked, never overflow */
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .dashboard-header > div:first-child {
+    width: 100%;
+  }
+  .dashboard-header .btn-primary {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  /* Search filter row: fully stacked */
+  .search-filter-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  /* Search container: fix icon + input alignment */
+  .search-container {
+    width: 100% !important;
+    min-width: unset !important;
+    margin-bottom: 0 !important;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .search-input {
+    width: 100%;
+    padding-left: 42px;
+    box-sizing: border-box;
+  }
+
+  /* Selects full width */
+  .filter-select {
+    width: 100% !important;
+    min-width: unset !important;
+    box-sizing: border-box;
+  }
+
+  /* Clear button full width */
+  .search-filter-row .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Summary card stacked */
+  .summary-card {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  /* Table scrollable */
+  .expenses-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .expenses-table {
+    min-width: 520px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 12px;
+  }
+  .page-title {
+    font-size: 20px;
+  }
+  .page-subtitle {
+    font-size: 12px;
+  }
+}

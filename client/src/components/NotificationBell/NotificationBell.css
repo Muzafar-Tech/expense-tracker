@@ -62,18 +62,18 @@
 
 /* ── Dropdown panel ─────────────────────────────────────────── */
 .notif-dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
+  position: fixed;
+  top: 70px;
+  right: 24px;
   width: 360px;
   max-height: 480px;
-  background: rgba(11, 18, 32, 0.97);
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  background: #0b1220;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--glass-border-hi);
   border-radius: var(--radius-xl);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
-  z-index: 2000;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -331,7 +331,9 @@
 /* ── Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .notif-dropdown {
-    width: calc(100vw - 24px);
-    right: -60px;
+    width: calc(100vw - 32px);
+    right: 16px;
+    left: 16px;
+    top: 70px;
   }
 }
