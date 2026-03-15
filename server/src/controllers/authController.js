@@ -142,3 +142,29 @@ export const getMe = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+// -------- LOOKUP USER BY EMAIL --------
+// GET /api/auth/lookup?email=xxx
+// Used by the personal (no-group) expense flow
+
+export const lookupUser = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    // Prevent looking up yourself
+    const user = await User.findOne({ email: email.toLowerCase().trim() })
+      .select("_id name email");
+    if (!user) {
+      return res.status(404).json({ message: "No user found with that email" });
+    }
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "You cannot add an expense with yourself" });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

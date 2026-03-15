@@ -20,6 +20,10 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 
 import "./config/passport.js";
 
+// ── TEMP: confirm env vars are loaded on Render ──────────────
+console.log("CALLBACK URL:", process.env.GOOGLE_CALLBACK_URL);
+console.log("CLIENT URL:",   process.env.CLIENT_URL);
+
 const app = express();
 
 // Connect MongoDB
@@ -33,7 +37,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS blocked: ${origin}`));

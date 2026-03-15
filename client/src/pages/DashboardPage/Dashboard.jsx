@@ -5,7 +5,6 @@ import { Users, Plus, X, Bell } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
 import "./Dashboard.css";
 
-// Safe optional import — works even if NotificationContext isn't wired yet
 let useNotifications;
 try {
   useNotifications = require("../../contexts/NotificationContext").useNotifications;
@@ -29,12 +28,21 @@ function Dashboard() {
   const [expenseError, setExpenseError]               = useState("");
   const [submittingExp, setSubmittingExp]             = useState(false);
 
-  // Selected group + its fetched members
-  const [selectedGroupId, setSelectedGroupId]     = useState("");
-  const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
-  const [membersLoading, setMembersLoading]         = useState(false);
+  // Expense mode: "group" or "personal"
+  const [expenseMode, setExpenseMode] = useState("group");
 
-  // Full expense form — same shape as GroupDetail
+  // Personal expense state
+  const [personalEmail, setPersonalEmail]           = useState("");
+  const [personalEmailError, setPersonalEmailError] = useState("");
+  const [resolvedPersonal, setResolvedPersonal]     = useState(null);
+  const [resolvingEmail, setResolvingEmail]         = useState(false);
+
+  // Group expense state
+  const [selectedGroupId, setSelectedGroupId]           = useState("");
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
+  const [membersLoading, setMembersLoading]             = useState(false);
+
+  // Full expense form
   const [expenseForm, setExpenseForm] = useState({
     description:       "",
     payerMode:         "single",
@@ -83,7 +91,6 @@ function Dashboard() {
       setGroups(data.groups || []);
       setRecentExpenses(data.recentExpenses || []);
       setBalances(data.balances || []);
-      // Pre-select first group
       if (data.groups?.length) setSelectedGroupId(data.groups[0]._id);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -117,8 +124,6 @@ function Dashboard() {
       const data = await res.json();
       const members = data.members || [];
       setSelectedGroupMembers(members);
-
-      // Re-init form state for these members
       const allIds    = new Set(members.map((m) => m._id));
       const initMulti = {};
       const initPct   = {};
@@ -147,10 +152,8 @@ function Dashboard() {
     loadDashboard();
     fetchCurrentUser();
     fetchReceivedAmount();
-
     const onReceived = (e) => setReceivedAmount(e.detail?.total ?? 0);
     const onBalance  = () => { loadDashboard(); fetchReceivedAmount(); };
-
     window.addEventListener("receivedAmountUpdated", onReceived);
     window.addEventListener("balanceUpdated",        onBalance);
     return () => {
@@ -160,15 +163,72 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── When group dropdown changes, fetch that group's members */
   const handleGroupChange = (groupId) => {
     setSelectedGroupId(groupId);
     fetchGroupMembers(groupId);
   };
 
+  /* ── Resolve personal email ─────────────────────────────── */
+  const handleResolveEmail = async () => {
+    setPersonalEmailError("");
+    setResolvedPersonal(null);
+    setSelectedGroupMembers([]);
+    const email = personalEmail.trim().toLowerCase();
+    if (!email) { setPersonalEmailError("Enter an email address"); return; }
+    setResolvingEmail(true);
+    try {
+      const res = await fetch(`${API}/auth/lookup?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setPersonalEmailError(err.message || "User not found");
+        return;
+      }
+      const user = await res.json();
+      setResolvedPersonal(user);
+
+      // Build [me, otherPerson] members list
+      const meId    = currentUser?._id;
+      const otherId = user._id;
+      const members = [
+        { _id: meId,    name: currentUser?.name || "Me" },
+        { _id: otherId, name: user.name },
+      ].filter((m) => m._id);
+
+      const allIds    = new Set(members.map((m) => m._id));
+      const initMulti = {};
+      const initPct   = {};
+      const initExact = {};
+      members.forEach((m) => {
+        initMulti[m._id] = "";
+        initPct[m._id]   = "";
+        initExact[m._id] = "";
+      });
+
+      setSelectedGroupMembers(members);
+      setExpenseForm((prev) => ({
+        ...prev,
+        singlePayer:       meId || "",
+        splitAmong:        allIds,
+        multiPayerAmounts: initMulti,
+        percentages:       initPct,
+        exactAmounts:      initExact,
+      }));
+    } catch (err) {
+      setPersonalEmailError("Failed to look up user");
+    } finally {
+      setResolvingEmail(false);
+    }
+  };
+
   /* ── Open expense modal ─────────────────────────────────── */
   const openExpenseModal = async () => {
     setExpenseError("");
+    setExpenseMode("group");
+    setPersonalEmail("");
+    setPersonalEmailError("");
+    setResolvedPersonal(null);
     setExpenseForm({
       description:       "",
       payerMode:         "single",
@@ -184,7 +244,6 @@ function Dashboard() {
     if (selectedGroupId) await fetchGroupMembers(selectedGroupId);
   };
 
-  /* ── Toggle split member ────────────────────────────────── */
   const toggleSplitMember = (memberId) => {
     setExpenseForm((prev) => {
       const next = new Set(prev.splitAmong);
@@ -198,7 +257,6 @@ function Dashboard() {
     });
   };
 
-  /* ── Derived totals for modal ───────────────────────────── */
   const multiPayerTotal = Object.values(expenseForm.multiPayerAmounts)
     .reduce((sum, v) => sum + (Number(v) || 0), 0);
 
@@ -206,7 +264,7 @@ function Dashboard() {
     ? Number(expenseForm.singleAmount) || 0
     : multiPayerTotal;
 
-  /* ── Submit Add Expense ─────────────────────────────────── */
+  /* ── Submit expense ─────────────────────────────────────── */
   const handleAddExpense = async () => {
     setExpenseError("");
     const {
@@ -214,8 +272,13 @@ function Dashboard() {
       multiPayerAmounts, splitType, splitAmong, percentages, exactAmounts,
     } = expenseForm;
 
-    if (!selectedGroupId)       { setExpenseError("Select a group"); return; }
-    if (!description.trim())    { setExpenseError("Description is required"); return; }
+    if (expenseMode === "personal") {
+      if (!resolvedPersonal) { setExpenseError("Please look up the person's email first"); return; }
+    } else {
+      if (!selectedGroupId) { setExpenseError("Select a group"); return; }
+    }
+
+    if (!description.trim()) { setExpenseError("Description is required"); return; }
 
     if (payerMode === "single") {
       if (!singlePayer)                               { setExpenseError("Select who paid"); return; }
@@ -241,12 +304,15 @@ function Dashboard() {
 
     try {
       setSubmittingExp(true);
-      const body = {
-        groupId:   selectedGroupId,
-        description: description.trim(),
-        splitType,
-        splitAmong: [...splitAmong],
-      };
+      const body = { description: description.trim(), splitType, splitAmong: [...splitAmong] };
+
+      if (expenseMode === "personal") {
+        body.personEmail = resolvedPersonal.email;
+        body.personId    = resolvedPersonal._id;
+      } else {
+        body.groupId = selectedGroupId;
+      }
+
       if (payerMode === "single") {
         body.paidBy = singlePayer;
         body.amount = Number(singleAmount);
@@ -277,7 +343,6 @@ function Dashboard() {
         setExpenseError(err.message || "Failed to add expense");
         return;
       }
-
       setShowAddExpenseModal(false);
       loadDashboard();
     } catch {
@@ -308,7 +373,6 @@ function Dashboard() {
     }
   };
 
-  /* ── Helpers ────────────────────────────────────────────── */
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -317,13 +381,11 @@ function Dashboard() {
       : d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  /* ── Early returns ──────────────────────────────────────── */
   if (loading) return (
     <DashboardLayout>
       <div className="loading-state"><div className="spinner" /><p>Loading dashboard...</p></div>
     </DashboardLayout>
   );
-
   if (error) return (
     <DashboardLayout>
       <div className="error-state">
@@ -333,12 +395,15 @@ function Dashboard() {
     </DashboardLayout>
   );
 
-  /* ── Derived totals ─────────────────────────────────────── */
   const totalYouOwe    = balances.filter((b) => b.type === "owe").reduce((s, b) => s + Math.abs(b.amount || 0), 0);
   const totalOwedToYou = balances.filter((b) => b.type === "owes").reduce((s, b) => s + Math.abs(b.amount || 0), 0);
   const netBalance     = totalOwedToYou - totalYouOwe;
+  const members        = selectedGroupMembers;
 
-  const members = selectedGroupMembers;
+  // Show expense form fields only when members are ready
+  const showExpenseForm = expenseMode === "group"
+    ? members.length > 0
+    : resolvedPersonal !== null && members.length > 0;
 
   return (
     <DashboardLayout>
@@ -395,8 +460,6 @@ function Dashboard() {
 
       {/* Main Grid */}
       <div className="dashboard-grid">
-
-        {/* Groups */}
         <div className="dashboard-section">
           <div className="section-header">
             <h2 className="section-title">Your Groups</h2>
@@ -426,7 +489,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Expenses */}
         <div className="dashboard-section">
           <div className="section-header">
             <h2 className="section-title">Recent Expenses</h2>
@@ -452,7 +514,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Balances */}
         <div className="dashboard-section">
           <div className="section-header">
             <h2 className="section-title">Your Balances</h2>
@@ -477,10 +538,11 @@ function Dashboard() {
             )}
           </div>
         </div>
-
       </div>
 
-      {/* ── ADD EXPENSE MODAL (full GroupDetail style) ──────────── */}
+      {/* ══════════════════════════════════════════════════════════
+          ADD EXPENSE MODAL
+      ══════════════════════════════════════════════════════════ */}
       {showAddExpenseModal && (
         <div className="modal-overlay" onClick={() => !submittingExp && setShowAddExpenseModal(false)}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
@@ -492,22 +554,122 @@ function Dashboard() {
             <div className="modal-body">
               {expenseError && <p className="form-error">{expenseError}</p>}
 
-              {/* Group selector */}
+              {/* Expense Type toggle */}
               <div className="form-group">
-                <label className="form-label">Group *</label>
-                <select
-                  className="form-input"
-                  value={selectedGroupId}
-                  onChange={(e) => handleGroupChange(e.target.value)}
-                >
-                  {groups.length === 0
-                    ? <option value="">No groups available</option>
-                    : groups.map((g) => <option key={g._id} value={g._id}>{g.name}</option>)
-                  }
-                </select>
+                <label className="form-label">Expense Type</label>
+                <div className="toggle-group">
+                  <button
+                    type="button"
+                    className={`toggle-btn ${expenseMode === "group" ? "active" : ""}`}
+                    onClick={() => {
+                      setExpenseMode("group");
+                      setPersonalEmail("");
+                      setPersonalEmailError("");
+                      setResolvedPersonal(null);
+                      if (selectedGroupId) fetchGroupMembers(selectedGroupId);
+                    }}
+                  >
+                    <Users size={14} style={{ marginRight: 5 }} />
+                    With a Group
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${expenseMode === "personal" ? "active" : ""}`}
+                    onClick={() => {
+                      setExpenseMode("personal");
+                      setSelectedGroupMembers([]);
+                      setResolvedPersonal(null);
+                      setExpenseForm((prev) => ({
+                        ...prev,
+                        splitAmong: new Set(), multiPayerAmounts: {},
+                        percentages: {}, exactAmounts: {},
+                        singlePayer: currentUser?._id || "",
+                      }));
+                    }}
+                  >
+                    <Plus size={14} style={{ marginRight: 5 }} />
+                    No Group (Personal)
+                  </button>
+                </div>
               </div>
 
-              {/* Description */}
+              {/* GROUP: group selector */}
+              {expenseMode === "group" && (
+                <div className="form-group">
+                  <label className="form-label">Group *</label>
+                  <select
+                    className="form-input"
+                    value={selectedGroupId}
+                    onChange={(e) => handleGroupChange(e.target.value)}
+                  >
+                    {groups.length === 0
+                      ? <option value="">No groups available</option>
+                      : groups.map((g) => <option key={g._id} value={g._id}>{g.name}</option>)
+                    }
+                  </select>
+                </div>
+              )}
+
+              {/* PERSONAL: email lookup */}
+              {expenseMode === "personal" && (
+                <div className="form-group">
+                  <label className="form-label">Person's Email *</label>
+                  <div className="email-lookup-row">
+                    <input
+                      className="form-input"
+                      type="email"
+                      placeholder="e.g. sufyan@gmail.com"
+                      value={personalEmail}
+                      onChange={(e) => {
+                        setPersonalEmail(e.target.value);
+                        setPersonalEmailError("");
+                        if (resolvedPersonal) {
+                          setResolvedPersonal(null);
+                          setSelectedGroupMembers([]);
+                          setExpenseForm((prev) => ({
+                            ...prev,
+                            splitAmong: new Set(), multiPayerAmounts: {},
+                            percentages: {}, exactAmounts: {},
+                          }));
+                        }
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleResolveEmail(); }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleResolveEmail}
+                      disabled={resolvingEmail || !personalEmail.trim()}
+                    >
+                      {resolvingEmail ? "Finding..." : "Find"}
+                    </button>
+                  </div>
+
+                  {personalEmailError && (
+                    <p className="form-error" style={{ marginTop: 6 }}>{personalEmailError}</p>
+                  )}
+
+                  {/* Found: show person card with name */}
+                  {resolvedPersonal && (
+                    <div className="resolved-person-card">
+                      <div className="avatar-small">{resolvedPersonal.name?.[0]?.toUpperCase() || "?"}</div>
+                      <div>
+                        <span className="resolved-person-name">{resolvedPersonal.name}</span>
+                        <span className="resolved-person-email">{resolvedPersonal.email}</span>
+                      </div>
+                      <span className="resolved-check">✓ Found</span>
+                    </div>
+                  )}
+
+                  {!resolvedPersonal && !personalEmailError && (
+                    <p className="form-hint">
+                      Enter the email and click <strong>Find</strong>. Once found, their name will appear and you can add the expense.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Description — always visible */}
               <div className="form-group">
                 <label className="form-label">Description *</label>
                 <input
@@ -518,13 +680,25 @@ function Dashboard() {
                 />
               </div>
 
-              {membersLoading ? (
-                <p className="empty-text">Loading members...</p>
-              ) : members.length === 0 ? (
+              {/* Loading state */}
+              {membersLoading && <p className="empty-text">Loading members...</p>}
+
+              {/* Personal: waiting for email */}
+              {!membersLoading && expenseMode === "personal" && !resolvedPersonal && (
+                <div style={{ textAlign: "center", padding: "20px 0", color: "var(--text-muted)", fontSize: 13 }}>
+                  Enter an email above and click <strong style={{ color: "var(--accent-soft)" }}>Find</strong> to load split options
+                </div>
+              )}
+
+              {/* Group: no members */}
+              {!membersLoading && expenseMode === "group" && members.length === 0 && (
                 <p className="empty-text">No members found in this group.</p>
-              ) : (
+              )}
+
+              {/* ══ EXPENSE FORM FIELDS — only when members ready ══ */}
+              {!membersLoading && showExpenseForm && (
                 <>
-                  {/* Payment mode toggle */}
+                  {/* Payment mode */}
                   <div className="form-group">
                     <label className="form-label">Payment Mode</label>
                     <div className="toggle-group">
@@ -634,7 +808,6 @@ function Dashboard() {
                               <div className="avatar-small">{m.name[0].toUpperCase()}</div>
                               <span>{m.name}</span>
                             </label>
-
                             {isSelected && expenseForm.splitType === "percentage" && (
                               <div className="split-input-wrapper">
                                 <input
@@ -656,7 +829,6 @@ function Dashboard() {
                                 )}
                               </div>
                             )}
-
                             {isSelected && expenseForm.splitType === "exact" && (
                               <div className="split-input-wrapper">
                                 <span className="input-prefix">Rs</span>
@@ -673,7 +845,6 @@ function Dashboard() {
                                 />
                               </div>
                             )}
-
                             {isSelected && expenseForm.splitType === "equally" && expenseTotal > 0 && (
                               <span className="split-equal-hint">
                                 Rs {(expenseTotal / expenseForm.splitAmong.size).toFixed(2)}
@@ -683,7 +854,6 @@ function Dashboard() {
                         );
                       })}
                     </div>
-
                     {expenseForm.splitType === "percentage" && (
                       <p className="running-total">
                         Total:{" "}
@@ -708,7 +878,11 @@ function Dashboard() {
 
             <div className="modal-actions">
               <button className="btn-secondary" onClick={() => setShowAddExpenseModal(false)} disabled={submittingExp}>Cancel</button>
-              <button className="btn-primary"   onClick={handleAddExpense}                    disabled={submittingExp || membersLoading}>
+              <button
+                className="btn-primary"
+                onClick={handleAddExpense}
+                disabled={submittingExp || membersLoading || (expenseMode === "personal" && !resolvedPersonal)}
+              >
                 {submittingExp ? "Adding..." : "Add Expense"}
               </button>
             </div>
@@ -716,7 +890,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* ── NEW GROUP MODAL ──────────────────────────────────────── */}
+      {/* NEW GROUP MODAL */}
       {showNewGroupModal && (
         <div className="modal-overlay" onClick={() => setShowNewGroupModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

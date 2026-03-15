@@ -4,6 +4,7 @@ import Group        from "../models/Group.js";
 import Balance      from "../models/Balance.js";
 import Activity     from "../models/Activity.js";
 import Notification from "../models/Notification.js";
+import User         from "../models/User.js";
 
 /* ─────────────────────────────────────────────────────────────
    HELPER — upsert balance scoped to ONE specific group
@@ -24,6 +25,34 @@ const updateBalance = async (payerId, debtorId, share, groupId) => {
       person: debtorId,
       amount: Math.round(share * 100) / 100,
       groups: [groupId],
+    });
+  } else {
+    balance.amount = Math.round((balance.amount + share) * 100) / 100;
+    await balance.save();
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────
+   HELPER — upsert balance with NO group (personal expense)
+────────────────────────────────────────────────────────────── */
+const updateBalanceNoGroup = async (payerId, debtorId, share) => {
+  if (payerId.toString() === debtorId.toString()) return;
+  if (share <= 0) return;
+
+  // Find a balance between these two users that has no group, or
+  // find any existing balance between them to consolidate
+  const balance = await Balance.findOne({
+    user:   payerId,
+    person: debtorId,
+    groups: { $size: 0 },
+  });
+
+  if (!balance) {
+    await Balance.create({
+      user:   payerId,
+      person: debtorId,
+      amount: Math.round(share * 100) / 100,
+      groups: [],
     });
   } else {
     balance.amount = Math.round((balance.amount + share) * 100) / 100;
@@ -58,13 +87,16 @@ const reverseBalance = async (payerId, debtorId, share, groupId) => {
 
 /* ─────────────────────────────────────────────────────────────
    CREATE EXPENSE
-   Any group member (admin or member) can add expenses.
-   Notifies all OTHER group members.
+   Supports two modes:
+   1. Group expense  — groupId required (existing behaviour, unchanged)
+   2. Personal expense — personId required, no group
 ────────────────────────────────────────────────────────────── */
 export const createExpense = async (req, res) => {
   try {
     const {
       groupId,
+      personId,       // ← NEW: used when no group
+      personEmail,    // ← NEW: informational, not stored
       description,
       splitType = "equally",
       paidByMultiple,
@@ -77,7 +109,152 @@ export const createExpense = async (req, res) => {
 
     const userId = req.user._id;
 
-    if (!groupId || !description) {
+    if (!description) {
+      return res.status(400).json({ message: "description is required" });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       PERSONAL (NO GROUP) EXPENSE PATH
+    ══════════════════════════════════════════════════════════ */
+    if (!groupId && personId) {
+      // Validate the other person exists
+      const otherUser = await User.findById(personId).select("_id name email");
+      if (!otherUser) {
+        return res.status(404).json({ message: "Person not found" });
+      }
+      if (otherUser._id.toString() === userId.toString()) {
+        return res.status(400).json({ message: "You cannot add an expense with yourself" });
+      }
+
+      // Both users are the only "members" for this expense
+      const memberIds = [userId.toString(), otherUser._id.toString()];
+
+      /* ── Normalize payers ─────────────────────────────── */
+      let payers = [];
+      if (paidByMultiple && Array.isArray(paidByMultiple) && paidByMultiple.length > 0) {
+        payers = paidByMultiple.filter((p) => Number(p.amount) > 0);
+      } else if (paidBy && amount) {
+        payers = [{ memberId: paidBy, amount: Number(amount) }];
+      }
+
+      if (payers.length === 0) {
+        return res.status(400).json({ message: "At least one payer with amount > 0 is required" });
+      }
+
+      const totalAmount = Math.round(
+        payers.reduce((sum, p) => sum + Number(p.amount), 0) * 100
+      ) / 100;
+
+      if (totalAmount <= 0) {
+        return res.status(400).json({ message: "Total amount must be greater than 0" });
+      }
+
+      /* ── Normalize debtors ────────────────────────────── */
+      let debtorIds = [];
+      if (splitAmong && Array.isArray(splitAmong) && splitAmong.length > 0) {
+        debtorIds = splitAmong.filter((id) => memberIds.includes(id.toString()));
+      }
+      if (debtorIds.length === 0) debtorIds = memberIds;
+
+      /* ── Calculate shares ─────────────────────────────── */
+      const debtorShares = {};
+
+      if (splitType === "equally") {
+        const share = Math.round((totalAmount / debtorIds.length) * 100) / 100;
+        debtorIds.forEach((id) => { debtorShares[id] = share; });
+
+      } else if (splitType === "percentage") {
+        if (!percentages) {
+          return res.status(400).json({ message: "percentages object is required" });
+        }
+        let totalPct = 0;
+        debtorIds.forEach((id) => {
+          const pct = Number(percentages[id] || 0);
+          debtorShares[id] = Math.round((totalAmount * pct / 100) * 100) / 100;
+          totalPct += pct;
+        });
+        if (Math.abs(totalPct - 100) > 0.01) {
+          return res.status(400).json({ message: "Percentages must add up to 100" });
+        }
+
+      } else if (splitType === "exact") {
+        if (!exactAmounts) {
+          return res.status(400).json({ message: "exactAmounts object is required" });
+        }
+        let totalExact = 0;
+        debtorIds.forEach((id) => {
+          const amt = Number(exactAmounts[id] || 0);
+          debtorShares[id] = amt;
+          totalExact += amt;
+        });
+        if (Math.abs(totalExact - totalAmount) > 0.01) {
+          return res.status(400).json({
+            message: `Exact amounts (${totalExact}) must equal total (${totalAmount})`,
+          });
+        }
+      }
+
+      /* ── Save expense (no group field) ────────────────── */
+      const primaryPayer = payers.length === 1
+        ? payers[0].memberId
+        : payers.reduce((a, b) => (Number(a.amount) >= Number(b.amount) ? a : b)).memberId;
+
+      const expense = await Expense.create({
+        description,
+        amount:         totalAmount,
+        isPersonal:     true,          // ← skips group required validation
+        paidBy:         primaryPayer,
+        splitBetween:   debtorIds,
+        splitType,
+        createdBy:      userId,
+        paidByMultiple: payers,
+        debtorShares,
+      });
+
+      /* ── Update balances (no group) ───────────────────── */
+      for (const debtor of debtorIds) {
+        const totalOwed = debtorShares[debtor] || 0;
+        if (totalOwed <= 0) continue;
+
+        for (const payer of payers) {
+          if (debtor.toString() === payer.memberId.toString()) continue;
+          const payerFraction = Number(payer.amount) / totalAmount;
+          const owedToPayer   = Math.round(totalOwed * payerFraction * 100) / 100;
+          if (owedToPayer > 0) {
+            await updateBalanceNoGroup(payer.memberId, debtor, owedToPayer);
+          }
+        }
+      }
+
+      /* ── Activity log ─────────────────────────────────── */
+      await Activity.create({
+        type:        "expense_added",
+        description: `You added "${description}" (personal, with ${otherUser.name})`,
+        detail:      `Rs ${totalAmount} — Split between you and ${otherUser.name}`,
+        user:        userId,
+      });
+
+      /* ── Notify the other person ──────────────────────── */
+      const creator = await User.findById(userId).select("name");
+      await Notification.create({
+        recipient: otherUser._id,
+        sender:    userId,
+        type:      "expense_added",
+        message:   `${creator?.name || "Someone"} added "${description}" between you`,
+        detail:    `Rs ${totalAmount} — No group`,
+      });
+
+      const populated = await Expense.findById(expense._id)
+        .populate("paidBy",       "name email")
+        .populate("splitBetween", "name email");
+
+      return res.status(201).json(populated);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       GROUP EXPENSE PATH  — everything below is 100% unchanged
+    ══════════════════════════════════════════════════════════ */
+    if (!groupId) {
       return res.status(400).json({ message: "groupId and description are required" });
     }
 
@@ -207,9 +384,7 @@ export const createExpense = async (req, res) => {
         : `Rs ${p.amount}`;
     }).join(", ");
 
-    const creator = await import("../models/User.js").then((m) =>
-      m.default.findById(userId).select("name")
-    );
+    const creator = await User.findById(userId).select("name");
 
     await Activity.create({
       type:        "expense_added",
@@ -257,11 +432,18 @@ export const getExpenses = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // New query for role-based members array
+    // Group expenses: all groups the user belongs to
     const userGroups = await Group.find({ "members.user": userId }).select("_id");
     const groupIds   = userGroups.map((g) => g._id);
 
-    const expenses = await Expense.find({ group: { $in: groupIds } })
+    const expenses = await Expense.find({
+      $or: [
+        // Group expenses for user's groups
+        { group: { $in: groupIds } },
+        // Personal (no-group) expenses where user is paidBy or in splitBetween
+        { isPersonal: true, $or: [{ paidBy: userId }, { splitBetween: userId }] },
+      ],
+    })
       .populate("group",        "name")
       .populate("paidBy",       "name email")
       .populate("createdBy",    "name email")

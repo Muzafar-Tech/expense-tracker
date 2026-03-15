@@ -15,7 +15,15 @@ const expenseSchema = new mongoose.Schema(
     group: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "groups",
-      required: true,
+      // required only when this is a group expense (not a personal/no-group expense)
+      required: function () {
+        return this.isPersonal !== true && !this._skipGroupRequired;
+      },
+    },
+    // true for personal (no-group) expenses — set by expenseController
+    isPersonal: {
+      type: Boolean,
+      default: false,
     },
     // Primary payer (for display / legacy)
     paidBy: {

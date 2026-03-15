@@ -2028,3 +2028,182 @@ body {
   .btn-settle, .btn-confirm { width: 100%; justify-content: center; }
   .received-amount-badge { align-items: flex-start; width: 100%; }
 }
+
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ADDITIONS TO Dashboard.css
+   Paste these at the bottom of your existing Dashboard.css file
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Email Lookup Row (personal expense) ───────────────────── */
+.email-lookup-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.email-lookup-row .form-input {
+  flex: 1;
+}
+.email-lookup-row .btn-secondary {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 11px 18px;
+  font-size: 13px;
+}
+
+/* ── Resolved person card ───────────────────────────────────── */
+.resolved-person-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: var(--green-dim);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  border-radius: var(--radius-md);
+  animation: fadeUp 0.25s ease both;
+}
+.resolved-person-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.resolved-person-email {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.resolved-check {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.12);
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  white-space: nowrap;
+}
+
+/* ── Form hint text ─────────────────────────────────────────── */
+.form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+  padding: 8px 12px;
+  background: var(--accent-dim);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(79, 142, 247, 0.12);
+}
+
+/* ── filter-select (already in Dashboard but adding min-width override) */
+.filter-select {
+  padding: 11px 14px;
+  background: var(--glass-white);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-width: 160px;
+  cursor: pointer;
+  transition: all var(--transition);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a9bb5' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+}
+.filter-select:focus {
+  outline: none;
+  border-color: rgba(79, 142, 247, 0.5);
+  background-color: var(--glass-white-md);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.filter-select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+/* ── Responsive adjustments for new filters row ─────────────── */
+@media (max-width: 768px) {
+  .search-filter-row {
+    flex-direction: column;
+  }
+  .search-filter-row .filter-select {
+    width: 100%;
+    min-width: unset;
+  }
+  .email-lookup-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .email-lookup-row .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADD THESE LINES AT THE BOTTOM OF Dashboard.css
+   Fixes select dropdown background in dark theme
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Select / dropdown background fix ──────────────────────── */
+select,
+select.form-input,
+select.form-select,
+select.filter-select {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+select option,
+select.form-input option,
+select.form-select option,
+select.filter-select option {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Hover state for options (supported in Firefox) */
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: var(--bg-raised) !important;
+  color: var(--accent-soft) !important;
+}
+
+/* Focus ring */
+select:focus,
+select.form-input:focus,
+select.form-select:focus,
+select.filter-select:focus {
+  outline: none;
+  border-color: rgba(79, 142, 247, 0.5) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  background-color: var(--bg-raised) !important;
+}
+
+/* Report modal radio label background fix */
+.report-type-option {
+  background: var(--glass-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.report-type-option.selected,
+.report-type-option:has(input:checked) {
+  background: var(--accent-dim) !important;
+  border-color: rgba(79, 142, 247, 0.4) !important;
+}
