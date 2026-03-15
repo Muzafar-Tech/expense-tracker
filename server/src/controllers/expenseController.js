@@ -472,68 +472,111 @@ export const deleteExpense = async (req, res) => {
     if (!expense) return res.status(404).json({ message: "Expense not found" });
 
     const groupId   = expense.group?._id || expense.group;
-    const groupName = expense.group?.name || "a group";
+    const groupName = expense.group?.name || "Personal Expense";
+    const totalAmount = expense.amount;
 
-    // Fetch group to check role
-    const group = await Group.findById(groupId);
-    if (!group) return res.status(404).json({ message: "Group not found" });
-
-    const memberEntry = group.members.find(
-      (m) => m.user.toString() === userId.toString()
-    );
-
-    const isAdmin   = memberEntry?.role === "admin" ||
-                      group.createdBy.toString() === userId.toString();
+    /* ── Permission check ─────────────────────────────────── */
     const isCreator = expense.createdBy?.toString() === userId.toString();
 
-    // Permission check
-    if (!isAdmin && !isCreator) {
-      return res.status(403).json({
-        message: "You can only delete expenses you created. Group admins can delete any expense.",
+    if (groupId) {
+      // Group expense — check group role
+      const group = await Group.findById(groupId);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+
+      const memberEntry = group.members.find(
+        (m) => m.user.toString() === userId.toString()
+      );
+      const isGroupAdmin = memberEntry?.role === "admin" ||
+                           group.createdBy.toString() === userId.toString();
+
+      if (!isGroupAdmin && !isCreator) {
+        return res.status(403).json({
+          message: "You can only delete expenses you created. Group admins can delete any expense.",
+        });
+      }
+
+      /* ── Reverse group balances ───────────────────────────── */
+      const storedDebtorShares = expense.debtorShares || {};
+      const storedPayers = expense.paidByMultiple?.length
+        ? expense.paidByMultiple
+        : [{ memberId: expense.paidBy, amount: totalAmount }];
+
+      for (const debtor of expense.splitBetween) {
+        const totalOwed = storedDebtorShares[debtor.toString()]
+          || Math.round((totalAmount / expense.splitBetween.length) * 100) / 100;
+        for (const payer of storedPayers) {
+          if (debtor.toString() === payer.memberId.toString()) continue;
+          const payerFraction = Number(payer.amount) / totalAmount;
+          const owedToPayer   = Math.round(totalOwed * payerFraction * 100) / 100;
+          if (owedToPayer > 0) {
+            await reverseBalance(payer.memberId, debtor, owedToPayer, groupId);
+          }
+        }
+      }
+
+      group.expenses     = group.expenses.filter((e) => e.toString() !== id);
+      group.totalExpenses = Math.max(
+        0,
+        Math.round(((group.totalExpenses || 0) - totalAmount) * 100) / 100
+      );
+      await group.save();
+
+      await Activity.create({
+        type:        "expense_deleted",
+        description: `You deleted "${expense.description}" from "${groupName}"`,
+        detail:      `Rs ${totalAmount} — balances reversed`,
+        group:       group._id,
+        user:        userId,
+      });
+
+    } else {
+      // Personal (no-group) expense — only creator can delete
+      if (!isCreator) {
+        return res.status(403).json({
+          message: "You can only delete expenses you created.",
+        });
+      }
+
+      /* ── Reverse personal balances (no group) ─────────────── */
+      const storedDebtorShares = expense.debtorShares || {};
+      const storedPayers = expense.paidByMultiple?.length
+        ? expense.paidByMultiple
+        : [{ memberId: expense.paidBy, amount: totalAmount }];
+
+      for (const debtor of expense.splitBetween) {
+        const totalOwed = storedDebtorShares[debtor.toString()]
+          || Math.round((totalAmount / expense.splitBetween.length) * 100) / 100;
+        for (const payer of storedPayers) {
+          if (debtor.toString() === payer.memberId.toString()) continue;
+          const payerFraction = Number(payer.amount) / totalAmount;
+          const owedToPayer   = Math.round(totalOwed * payerFraction * 100) / 100;
+          if (owedToPayer > 0) {
+            // Reverse no-group balance
+            const bal = await Balance.findOne({
+              user:   payer.memberId,
+              person: debtor,
+              groups: { $size: 0 },
+            });
+            if (bal) {
+              bal.amount = Math.max(0, Math.round((bal.amount - owedToPayer) * 100) / 100);
+              if (bal.amount === 0) await bal.deleteOne();
+              else await bal.save();
+            }
+          }
+        }
+      }
+
+      await Activity.create({
+        type:        "expense_deleted",
+        description: `You deleted "${expense.description}" (personal expense)`,
+        detail:      `Rs ${totalAmount} — balances reversed`,
+        user:        userId,
       });
     }
 
-    const totalAmount = expense.amount;
-
-    /* ── Reverse balances ─────────────────────────────────── */
-    const storedDebtorShares = expense.debtorShares || {};
-    const storedPayers = expense.paidByMultiple?.length
-      ? expense.paidByMultiple
-      : [{ memberId: expense.paidBy, amount: totalAmount }];
-
-    for (const debtor of expense.splitBetween) {
-      const totalOwed = storedDebtorShares[debtor.toString()]
-        || Math.round((totalAmount / expense.splitBetween.length) * 100) / 100;
-
-      for (const payer of storedPayers) {
-        if (debtor.toString() === payer.memberId.toString()) continue;
-        const payerFraction = Number(payer.amount) / totalAmount;
-        const owedToPayer   = Math.round(totalOwed * payerFraction * 100) / 100;
-        if (owedToPayer > 0) {
-          await reverseBalance(payer.memberId, debtor, owedToPayer, groupId);
-        }
-      }
-    }
-
-    group.expenses     = group.expenses.filter((e) => e.toString() !== id);
-    group.totalExpenses = Math.max(
-      0,
-      Math.round(((group.totalExpenses || 0) - totalAmount) * 100) / 100
-    );
-    await group.save();
-
-    const desc = expense.description;
     await expense.deleteOne();
-
-    await Activity.create({
-      type:        "expense_deleted",
-      description: `You deleted "${desc}" from "${groupName}"`,
-      detail:      `Rs ${totalAmount} — balances reversed`,
-      group:       group._id,
-      user:        userId,
-    });
-
     res.json({ message: "Expense deleted successfully" });
+
   } catch (error) {
     console.error("deleteExpense error:", error);
     res.status(500).json({ message: error.message });
