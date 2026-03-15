@@ -20,9 +20,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 
 import "./config/passport.js";
 
-// ── TEMP: confirm env vars are loaded on Render ──────────────
-console.log("CALLBACK URL:", process.env.GOOGLE_CALLBACK_URL);
-console.log("CLIENT URL:",   process.env.CLIENT_URL);
+
 
 const app = express();
 
