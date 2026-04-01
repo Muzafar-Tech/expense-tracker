@@ -36,6 +36,7 @@ function GroupDetail() {
   const [submittingExp, setSubmittingExp]             = useState(false);
   const [expenseForm, setExpenseForm] = useState({
     description:       "",
+    date:              new Date().toISOString().split("T")[0],
     payerMode:         "single",
     singlePayer:       "",
     singleAmount:      "",
@@ -52,14 +53,20 @@ function GroupDetail() {
   const [memberError, setMemberError]               = useState("");
   const [addingMember, setAddingMember]             = useState(false);
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "Unknown date";
-    const d = new Date(dateStr);
-    return isNaN(d.getTime())
-      ? dateStr
-      : d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
-  };
-
+ const formatDate = (dateStr) => {
+  if (!dateStr) return "Unknown date";
+  // Strip time part if present, then parse manually to avoid UTC shift
+  const datePart = dateStr.split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [year, month, day] = datePart.split("-").map(Number);
+    return new Date(year, month - 1, day)
+      .toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime())
+    ? dateStr
+    : d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+};
   /* ── Fetch group + settlements ─────────────────────────────── */
   const fetchGroup = useCallback(async () => {
     if (!groupId) return;
@@ -91,6 +98,7 @@ function GroupDetail() {
 
       setExpenseForm((prev) => ({
         ...prev,
+        date:              prev.date || new Date().toISOString().split("T")[0],
         singlePayer:       groupData.members[0]?._id || "",
         splitAmong:        allIds,
         multiPayerAmounts: initMulti,
@@ -113,11 +121,9 @@ function GroupDetail() {
   useEffect(() => { fetchGroup(); }, [fetchGroup]);
 
   /* ── Role helpers ──────────────────────────────────────────── */
-  // userRole is returned by the backend in getGroupDetail response
   const userRole = group?.userRole || "member";
   const isAdmin  = userRole === "admin";
 
-  // Can the current user delete this specific expense?
   const canDeleteExpense = (expense) => {
     if (isAdmin) return true;
     return expense.createdBy?._id?.toString() === currentUserId ||
@@ -158,6 +164,7 @@ function GroupDetail() {
     });
     setExpenseForm({
       description:       "",
+      date:              new Date().toISOString().split("T")[0],
       payerMode:         "single",
       singlePayer:       group.members[0]?._id || "",
       singleAmount:      "",
@@ -175,11 +182,12 @@ function GroupDetail() {
   const handleAddExpense = async () => {
     setExpenseError("");
     const {
-      description, payerMode, singlePayer, singleAmount,
+      description, date, payerMode, singlePayer, singleAmount,
       multiPayerAmounts, splitType, splitAmong, percentages, exactAmounts,
     } = expenseForm;
 
     if (!description.trim())  { setExpenseError("Description is required"); return; }
+    if (!date)                 { setExpenseError("Date is required"); return; }
     if (payerMode === "single") {
       if (!singlePayer)                             { setExpenseError("Select who paid"); return; }
       if (!singleAmount || Number(singleAmount) <= 0) { setExpenseError("Enter a valid amount"); return; }
@@ -206,6 +214,7 @@ function GroupDetail() {
       const body = {
         groupId,
         description: description.trim(),
+        date:        date,
         splitType,
         splitAmong: [...splitAmong],
       };
@@ -368,7 +377,6 @@ function GroupDetail() {
             <p className="page-subtitle">
               {group.description || "No description"} • {members.length} members
             </p>
-            {/* Role badge under title */}
             <span className={`group-detail-role-badge ${isAdmin ? "badge-admin" : "badge-member"}`}>
               {isAdmin ? <><Crown size={11} /> Admin</> : <><User size={11} /> Member</>}
             </span>
@@ -376,13 +384,11 @@ function GroupDetail() {
         </div>
 
         <div className="group-detail-actions">
-          {/* Add Member — admin only */}
           {isAdmin && (
             <button className="btn-secondary" onClick={() => setShowAddMemberModal(true)}>
               <UserPlus size={18} /> Add Member
             </button>
           )}
-          {/* Add Expense — all members */}
           <button className="btn-primary" onClick={openExpenseModal}>
             <Plus size={20} /> Add Expense
           </button>
@@ -432,7 +438,6 @@ function GroupDetail() {
                         <div>
                           <div className="member-name-row">
                             <p className="member-name">{member.name || "Unknown"}</p>
-                            {/* Role pill next to name */}
                             {isMemberAdmin ? (
                               <span className="member-role-pill pill-admin"><Crown size={9} /> Admin</span>
                             ) : (
@@ -448,7 +453,6 @@ function GroupDetail() {
                         <div className={`member-balance ${balance >= 0 ? "positive" : "negative"}`}>
                           {balance >= 0 ? "+" : ""}Rs {Math.abs(balance).toLocaleString()}
                         </div>
-                        {/* Remove member — admin only, cannot remove self */}
                         {isAdmin && !isSelf && !isMemberAdmin && (
                           <button
                             className="btn-remove-member"
@@ -505,13 +509,12 @@ function GroupDetail() {
                       <h4 className="expense-description">{expense.description || "Unnamed Expense"}</h4>
                       <p className="expense-meta">
                         Paid by {expense.paidBy?.name || expense.paidBy || "Unknown"} •{" "}
-                        {formatDate(expense.createdAt || expense.date)}
+                        {formatDate(expense.date || expense.createdAt)}
                         {addedByMe && <span className="expense-added-by-you"> • Added by you</span>}
                       </p>
                     </div>
                     <div className="expense-item-actions">
                       <div className="expense-amount">Rs {(expense.amount || 0).toLocaleString()}</div>
-                      {/* Delete button — shown only if user has permission */}
                       {canDelete && (
                         <button
                           className="btn-delete"
@@ -552,6 +555,17 @@ function GroupDetail() {
                   placeholder="e.g. Dinner, Groceries, Rent"
                   value={expenseForm.description}
                   onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))}
+                />
+              </div>
+
+              {/* Date */}
+              <div className="form-group">
+                <label className="form-label">Date *</label>
+                <input
+                  className="form-input"
+                  type="date"
+                  value={expenseForm.date || ""}
+                  onChange={(e) => setExpenseForm((p) => ({ ...p, date: e.target.value }))}
                 />
               </div>
 

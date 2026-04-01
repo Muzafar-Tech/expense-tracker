@@ -45,6 +45,7 @@ function Dashboard() {
   // Full expense form
   const [expenseForm, setExpenseForm] = useState({
     description:       "",
+    date:              new Date().toISOString().split("T")[0],
     payerMode:         "single",
     singlePayer:       "",
     singleAmount:      "",
@@ -231,6 +232,7 @@ function Dashboard() {
     setResolvedPersonal(null);
     setExpenseForm({
       description:       "",
+      date:              new Date().toISOString().split("T")[0],
       payerMode:         "single",
       singlePayer:       "",
       singleAmount:      "",
@@ -268,7 +270,7 @@ function Dashboard() {
   const handleAddExpense = async () => {
     setExpenseError("");
     const {
-      description, payerMode, singlePayer, singleAmount,
+      description, date, payerMode, singlePayer, singleAmount,
       multiPayerAmounts, splitType, splitAmong, percentages, exactAmounts,
     } = expenseForm;
 
@@ -279,6 +281,7 @@ function Dashboard() {
     }
 
     if (!description.trim()) { setExpenseError("Description is required"); return; }
+    if (!date)                { setExpenseError("Date is required"); return; }
 
     if (payerMode === "single") {
       if (!singlePayer)                               { setExpenseError("Select who paid"); return; }
@@ -304,7 +307,12 @@ function Dashboard() {
 
     try {
       setSubmittingExp(true);
-      const body = { description: description.trim(), splitType, splitAmong: [...splitAmong] };
+      const body = {
+        description: description.trim(),
+        date:        date,
+        splitType,
+        splitAmong: [...splitAmong],
+      };
 
       if (expenseMode === "personal") {
         body.personEmail = resolvedPersonal.email;
@@ -374,12 +382,19 @@ function Dashboard() {
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return isNaN(d.getTime())
-      ? dateStr
-      : d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
-  };
+  if (!dateStr) return "Unknown date";
+  // Strip time part if present, then parse manually to avoid UTC shift
+  const datePart = dateStr.split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [year, month, day] = datePart.split("-").map(Number);
+    return new Date(year, month - 1, day)
+      .toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime())
+    ? dateStr
+    : d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+};
 
   if (loading) return (
     <DashboardLayout>
@@ -503,7 +518,7 @@ function Dashboard() {
                   <div className="expense-details">
                     <h4 className="expense-description">{expense.description || "Unnamed Expense"}</h4>
                     <p className="expense-meta">
-                      {expense.group?.name || "No Group"} • {formatDate(expense.date)} • Paid by{" "}
+                      {expense.group?.name || "No Group"} • {formatDate(expense.date || expense.createdAt)} • Paid by{" "}
                       {expense.paidBy?.name || expense.paidBy || "Unknown"}
                     </p>
                   </div>
@@ -649,7 +664,6 @@ function Dashboard() {
                     <p className="form-error" style={{ marginTop: 6 }}>{personalEmailError}</p>
                   )}
 
-                  {/* Found: show person card with name */}
                   {resolvedPersonal && (
                     <div className="resolved-person-card">
                       <div className="avatar-small">{resolvedPersonal.name?.[0]?.toUpperCase() || "?"}</div>
@@ -677,6 +691,17 @@ function Dashboard() {
                   placeholder="e.g. Dinner, Groceries, Rent"
                   value={expenseForm.description}
                   onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))}
+                />
+              </div>
+
+              {/* Date — always visible */}
+              <div className="form-group">
+                <label className="form-label">Date *</label>
+                <input
+                  className="form-input"
+                  type="date"
+                  value={expenseForm.date || ""}
+                  onChange={(e) => setExpenseForm((p) => ({ ...p, date: e.target.value }))}
                 />
               </div>
 

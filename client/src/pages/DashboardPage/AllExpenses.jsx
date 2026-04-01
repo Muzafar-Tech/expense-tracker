@@ -27,20 +27,17 @@ const getName = (p) => {
 ─────────────────────────────────────────────────────────────── */
 const getPersonShare = (expense, personName) => {
   const splitBetween = expense.splitBetween || [];
-  // Find the member object matching the person name
   const member = splitBetween.find(
     (m) => (m?.name || (typeof m === "string" ? m : "")) === personName
   );
   if (!member) return null;
 
   const memberId = member._id || member;
-  // debtorShares is populated from backend as a plain object
   const shares = expense.debtorShares || {};
   const share  = shares[memberId?.toString?.()];
 
   if (share !== undefined && share !== null) return share;
 
-  // Fallback: equal split
   if (splitBetween.length > 0) {
     return Math.round((expense.amount / splitBetween.length) * 100) / 100;
   }
@@ -125,8 +122,6 @@ function generateExpensePDF({
         (m) => (m?.name || (typeof m === "string" ? m : "")) === personName
       );
 
-      // If this person paid but is NOT in the split (expense split on others)
-      // show who it was split among and their amounts
       let shareDisp;
       if (!inSplit && isPayer) {
         const others = (exp.splitBetween || [])
@@ -152,12 +147,11 @@ function generateExpensePDF({
         </tr>`;
     }).join("");
 
-    // Total share = only expenses where person is actually in the split
     const totalShare = list.reduce((s, exp) => {
       const inSplit = (exp.splitBetween || []).some(
         (m) => (m?.name || (typeof m === "string" ? m : "")) === personName
       );
-      if (!inSplit) return s; // paid but split on others — don't count in their share
+      if (!inSplit) return s;
       const share = getPersonShare(exp, personName);
       return s + (share || 0);
     }, 0);
@@ -259,7 +253,6 @@ function generateExpensePDF({
         <div class="scard purple"><div class="sc-label">Filter</div><div class="sc-val" style="font-size:13px">${filterValue || "All"}</div></div>
       </div>`;
 
-    // If multiple people involved, show per-person columns
     const personSet = new Set();
     expenses.forEach((e) => {
       (e.splitBetween || []).forEach((m) => {
@@ -272,7 +265,6 @@ function generateExpensePDF({
     const personList = Array.from(personSet).sort();
 
     if (personList.length > 1 && personList.length <= 6) {
-      // Show grouped per-person table
       bodyHtml = `<div class="section-block">
         <div class="section-heading group-heading"><span>Expense Breakdown</span><span class="group-total">${fmtRs(total)}</span></div>
         ${groupExpenseTable(expenses, personList)}
@@ -289,7 +281,6 @@ function generateExpensePDF({
     reportTitle    = `Group Report — ${filterValue}`;
     reportSubtitle = `${expenses.length} expense${expenses.length !== 1 ? "s" : ""}`;
 
-    // Build member balance summary for this group
     const memberBalSummary = balances && balances.length > 0
       ? `<div class="member-bal-summary">
           <div class="section-heading" style="background:#eff6ff;color:#1d4ed8;border-bottom:1px solid #bfdbfe;">Member Balances in ${filterValue}</div>
@@ -299,11 +290,9 @@ function generateExpensePDF({
               const color  = isOwe ? "#dc2626" : "#16a34a";
               const bg     = isOwe ? "#fef2f2" : "#f0fdf4";
               const border = isOwe ? "#fecaca" : "#bbf7d0";
-              const label  = isOwe ? `Owes you` : `Owes you`;
-              const sign   = isOwe ? "−" : "+";
               return `<div class="member-bal-card" style="border-color:${border};background:${bg}">
                 <div class="member-bal-name">${b.person}</div>
-                <div class="member-bal-amount" style="color:${color}">${sign} ${fmtRs(b.amount)}</div>
+                <div class="member-bal-amount" style="color:${color}">${isOwe ? "−" : "+"} ${fmtRs(b.amount)}</div>
                 <div class="member-bal-label" style="color:${color}">${isOwe ? "You owe" : "Owes you"}</div>
               </div>`;
             }).join("")}
@@ -366,9 +355,6 @@ function generateExpensePDF({
     reportTitle    = `Person Report — ${filterValue}`;
     reportSubtitle = `Expenses involving ${filterValue} — showing individual split amounts`;
 
-    // Include expense if:
-    // 1. Person is in splitBetween, OR
-    // 2. Person is the payer (catches personal/no-group expenses)
     const myExpenses = expenses.filter((e) => {
       const inSplit = (e.splitBetween || []).some(
         (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue
@@ -377,9 +363,7 @@ function generateExpensePDF({
       return inSplit || isPayer;
     });
 
-    // Section 1: expenses paid BY this person
-    const paidByMe = myExpenses.filter((e) => getName(e.paidBy) === filterValue);
-    // Section 2: expenses paid by OTHERS but split includes this person
+    const paidByMe    = myExpenses.filter((e) => getName(e.paidBy) === filterValue);
     const splitIntoMe = myExpenses.filter((e) =>
       getName(e.paidBy) !== filterValue &&
       (e.splitBetween || []).some(
@@ -395,7 +379,6 @@ function generateExpensePDF({
         const share = getPersonShare(exp, filterValue);
         return s + (share || 0);
       }
-      // Payer only (not split among others) — full amount is theirs
       return s + (exp.amount || 0);
     }, 0);
     const paidTotal = paidByMe.reduce((s, e) => s + (e.amount || 0), 0);
@@ -431,7 +414,6 @@ function generateExpensePDF({
       bodyHtml = `<div style="padding:40px;text-align:center;color:#64748b;">No expenses found for ${filterValue}</div>`;
     }
 
-    // Balance summary — show ALL balances (both owe and owes)
     if (balances && balances.length > 0) bodyHtml += balanceSection(balances);
   }
 
@@ -441,7 +423,6 @@ function generateExpensePDF({
     reportSubtitle = "Person-wise breakdown with individual split amounts";
     const grandTotal = expenses.reduce((s, e) => s + (e.amount || 0), 0);
 
-    // Collect all unique person names from splitBetween
     const personSet = new Set();
     expenses.forEach((e) => {
       (e.splitBetween || []).forEach((m) => {
@@ -461,7 +442,6 @@ function generateExpensePDF({
       </div>`;
 
     bodyHtml = personNames.map((pName) => {
-      // Only expenses where this person is in splitBetween
       const involved = expenses.filter((e) =>
         (e.splitBetween || []).some(
           (m) => (m?.name || (typeof m === "string" ? m : "")) === pName
@@ -550,7 +530,6 @@ function generateExpensePDF({
   .paid-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px;
     background: #dbeafe; color: #1d4ed8; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
 
-  /* Member balance grid in group report */
   .member-bal-summary { margin-bottom: 28px; border: 1px solid #bfdbfe; border-radius: 10px; overflow: hidden; }
   .member-bal-grid { display: flex; flex-wrap: wrap; gap: 0; padding: 16px; background: #fff; gap: 12px; }
   .member-bal-card { flex: 1; min-width: 140px; padding: 14px 16px; border-radius: 8px; border: 1px solid; }
@@ -653,20 +632,17 @@ function AllExpenses() {
       setLoading(true);
       setError(null);
 
-      // ── Current user ───────────────────────────────────────
       try {
         const uRes = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
         if (uRes.ok) setCurrentUser(await uRes.json());
       } catch { /* optional */ }
 
-      // ── Expenses ───────────────────────────────────────────
       const eRes = await fetch(`${API}/expenses`, { headers: { Authorization: `Bearer ${token}` } });
       if (!eRes.ok) throw new Error("Failed to fetch expenses");
       const eData  = await eRes.json();
       const expList = Array.isArray(eData) ? eData : eData.expenses || [];
       setExpenses(expList);
 
-      // ── Groups ─────────────────────────────────────────────
       try {
         const gRes = await fetch(`${API}/groups`, { headers: { Authorization: `Bearer ${token}` } });
         if (gRes.ok) {
@@ -679,7 +655,6 @@ function AllExpenses() {
         }
       } catch { /* fallback to expenses */ }
 
-      // ── Persons ────────────────────────────────────────────
       const personSet = new Set();
       expList.forEach((e) => {
         const p = resolvePaidBy(e.paidBy);
@@ -690,7 +665,6 @@ function AllExpenses() {
         });
       });
 
-      // ── Balances ───────────────────────────────────────────
       try {
         const bRes = await fetch(`${API}/balances`, { headers: { Authorization: `Bearer ${token}` } });
         if (bRes.ok) {
@@ -711,16 +685,13 @@ function AllExpenses() {
     }
   };
 
-  /* ── Can this user delete this expense? ───────────────── */
   const canDelete = (expense) => {
     if (!currentUser) return false;
-    // Creator can always delete their own expense
     const createdById = expense.createdBy?._id || expense.createdBy;
     if (createdById?.toString() === currentUser._id?.toString()) return true;
-    // Group admin can delete any expense in their group
     if (expense.group?._id || expense.group) {
-      const groupId    = expense.group?._id || expense.group;
-      const groupObj   = groups.find((g) => g._id?.toString() === groupId?.toString());
+      const groupId  = expense.group?._id || expense.group;
+      const groupObj = groups.find((g) => g._id?.toString() === groupId?.toString());
       if (groupObj?.members) {
         const me = groupObj.members.find(
           (m) => (m.user?._id || m.user)?.toString() === currentUser._id?.toString()
@@ -785,6 +756,7 @@ function AllExpenses() {
       });
       rBalances = balances.filter((b) => names.has(b.person));
     }
+
     else if (reportType === "group") {
       if (reportGroupFilter === "all") {
         rType     = "all-groups";
@@ -792,10 +764,11 @@ function AllExpenses() {
         rExpenses = expenses;
         rBalances = balances;
       } else {
-        rType         = "single-group";
-        rFilter       = reportGroupFilter;
-        rExpenses     = expenses.filter((e) => e.group?.name === reportGroupFilter);
-        // Collect member names for group columns
+        rType     = "single-group";
+        rFilter   = reportGroupFilter;
+        rExpenses = expenses.filter((e) => e.group?.name === reportGroupFilter);
+
+        // Collect member names from this group's expenses only
         const memberNames = new Set();
         rExpenses.forEach((e) => {
           (e.splitBetween || []).forEach((m) => { if (m?.name) memberNames.add(m.name); });
@@ -803,10 +776,43 @@ function AllExpenses() {
           if (p && p !== "Unknown") memberNames.add(p);
         });
         rGroupMembers = Array.from(memberNames).sort();
-        // Only balances for members of this group
-        rBalances     = balances.filter((b) => memberNames.has(b.person));
+
+        // ─────────────────────────────────────────────────────────
+        // FIX: Do NOT use the global balances state here.
+        // The /balances API returns balances across ALL groups with
+        // no group field, so filtering by person name alone leaks
+        // balances from other groups (e.g. a stray Rs 200 entry).
+        //
+        // Instead, derive balances fresh from this group's expenses.
+        // ─────────────────────────────────────────────────────────
+        const memberTotals = {};
+        rGroupMembers.forEach((name) => { memberTotals[name] = 0; });
+
+        rExpenses.forEach((exp) => {
+          const payer = resolvePaidBy(exp.paidBy);
+          (exp.splitBetween || []).forEach((m) => {
+            const mName = m?.name || (typeof m === "string" ? m : null);
+            if (!mName || mName === payer) return;
+            const share = getPersonShare(exp, mName);
+            if (share != null && memberTotals[mName] !== undefined) {
+              memberTotals[mName] += share;
+            }
+          });
+        });
+
+        // Build rBalances — only members who owe money (amount > 0)
+        // and are not the current user themselves
+        const currentUserName = currentUser?.name || localStorage.getItem("userName") || "";
+        rBalances = rGroupMembers
+          .filter((name) => name !== currentUserName && memberTotals[name] > 0)
+          .map((name) => ({
+            person: name,
+            amount: Math.round(memberTotals[name] * 100) / 100,
+            type: "owed", // they owe you
+          }));
       }
     }
+
     else if (reportType === "person") {
       if (reportPersonFilter === "all") {
         rType     = "all-persons";
@@ -816,7 +822,6 @@ function AllExpenses() {
       } else {
         rType     = "single-person";
         rFilter   = reportPersonFilter;
-        // Include: in splitBetween OR is the payer
         rExpenses = expenses.filter((e) => {
           const inSplit = (e.splitBetween || []).some(
             (m) => (m?.name || (typeof m === "string" ? m : "")) === reportPersonFilter
@@ -824,9 +829,6 @@ function AllExpenses() {
           const isPayer = resolvePaidBy(e.paidBy) === reportPersonFilter;
           return inSplit || isPayer;
         });
-        // Only show balances directly related to this person:
-        // b.person = someone who owes the logged-in user (shown as "Owes you")
-        // Filter to only the selected person's entry
         rBalances = balances.filter((b) => b.person === reportPersonFilter);
       }
     }
@@ -959,7 +961,6 @@ function AllExpenses() {
                       <td>{fmtDate(expense.createdAt || expense.date)}</td>
                       <td className="expense-amount-cell">Rs {(expense.amount || 0).toLocaleString()}</td>
                       <td>
-                        {/* Only show delete if user has permission */}
                         {canDelete(expense) && (
                           <button
                             onClick={() => handleDeleteExpense(expense._id)}
