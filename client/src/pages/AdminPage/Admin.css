@@ -324,3 +324,8 @@
   .admin-stat-label                { font-size: 9px; }
   .admin-stat-card                 { padding: 12px 14px; }
 }
+
+
+.admin-action-btn.danger {
+  box-shadow: 0 0 10px rgba(248,113,113,0.2);
+}

@@ -1,9 +1,9 @@
 // client/src/pages/DashboardPage/AllExpenses.jsx
 import { useState, useEffect } from "react";
-import { Search, Trash2, Download, FileText, X } from "lucide-react";
+import { Search, Trash2, Download, FileText, X, Pencil } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
 import "./Dashboard.css";
-
+import ExpenseModal from "../../components/ExpenseModal";
 const API = process.env.REACT_APP_API_URL;
 
 /* ═════════════════════════════════════════════════════════════
@@ -12,9 +12,15 @@ const API = process.env.REACT_APP_API_URL;
 const fmtDate = (d) => {
   if (!d) return "N/A";
   const dt = new Date(d);
-  return isNaN(dt.getTime()) ? d : dt.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+  return isNaN(dt.getTime())
+    ? d
+    : dt.toLocaleDateString("en-PK", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
 };
-const fmtRs  = (n) => `Rs ${Number(n || 0).toLocaleString("en-PK")}`;
+const fmtRs = (n) => `Rs ${Number(n || 0).toLocaleString("en-PK")}`;
 const getName = (p) => {
   if (!p) return "Unknown";
   if (typeof p === "string") return p;
@@ -28,13 +34,13 @@ const getName = (p) => {
 const getPersonShare = (expense, personName) => {
   const splitBetween = expense.splitBetween || [];
   const member = splitBetween.find(
-    (m) => (m?.name || (typeof m === "string" ? m : "")) === personName
+    (m) => (m?.name || (typeof m === "string" ? m : "")) === personName,
   );
   if (!member) return null;
 
   const memberId = member._id || member;
   const shares = expense.debtorShares || {};
-  const share  = shares[memberId?.toString?.()];
+  const share = shares[memberId?.toString?.()];
 
   if (share !== undefined && share !== null) return share;
 
@@ -48,27 +54,40 @@ const getPersonShare = (expense, personName) => {
    PDF GENERATOR
 ═════════════════════════════════════════════════════════════ */
 function generateExpensePDF({
-  expenses, reportType, filterValue, generatedBy,
-  balances, groupMembers,
+  expenses,
+  reportType,
+  filterValue,
+  generatedBy,
+  balances,
+  groupMembers,
 }) {
-  const now     = new Date();
-  const dateStr = now.toLocaleDateString("en-PK", { day: "numeric", month: "long", year: "numeric" });
-  const timeStr = now.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-PK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const timeStr = now.toLocaleTimeString("en-PK", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   /* ── Balance summary block ─────────────────────────────── */
   const balanceSection = (bals) => {
     if (!bals || bals.length === 0) return "";
-    const rows = bals.map((b) => {
-      const isOwe = b.type === "owe";
-      const color = isOwe ? "#dc2626" : "#16a34a";
-      const sign  = isOwe ? "−" : "+";
-      const label = isOwe ? `You owe ${b.person}` : `${b.person} owes you`;
-      return `<tr>
+    const rows = bals
+      .map((b) => {
+        const isOwe = b.type === "owe";
+        const color = isOwe ? "#dc2626" : "#16a34a";
+        const sign = isOwe ? "−" : "+";
+        const label = isOwe ? `You owe ${b.person}` : `${b.person} owes you`;
+        return `<tr>
         <td><strong>${b.person}</strong></td>
         <td style="color:${color};font-weight:700">${sign} ${fmtRs(b.amount)}</td>
         <td style="color:${color}">${label}</td>
       </tr>`;
-    }).join("");
+      })
+      .join("");
     return `
       <div class="section-block balance-block">
         <div class="section-heading">Balance Summary</div>
@@ -82,16 +101,22 @@ function generateExpensePDF({
   /* ── Standard expense table (full amount) ──────────────── */
   const expenseTable = (list, showTotal = true) => {
     const total = list.reduce((s, e) => s + (e.amount || 0), 0);
-    const rows  = list.map((exp, i) => `
+    const rows = list
+      .map(
+        (exp, i) => `
       <tr class="${i % 2 === 0 ? "r-even" : "r-odd"}">
         <td class="tc">${i + 1}</td>
         <td class="td">${exp.description || "—"}</td>
         <td>${exp.group?.name || "Personal"}</td>
         <td>${getName(exp.paidBy)}</td>
         <td class="tc">${(exp.splitBetween || []).length}</td>
-        <td>${fmtDate(exp.createdAt || exp.date)}</td>
+       
+        <td>${fmtDate(exp.date)}</td>
+
         <td class="tr amt">${fmtRs(exp.amount)}</td>
-      </tr>`).join("");
+      </tr>`,
+      )
+      .join("");
     return `
       <table>
         <thead><tr>
@@ -105,51 +130,57 @@ function generateExpensePDF({
         </tr></thead>
         <tbody>
           ${rows}
-          ${showTotal ? `<tr class="total-row">
+          ${
+            showTotal
+              ? `<tr class="total-row">
             <td colspan="6" class="tr" style="font-size:11px;letter-spacing:.4px">TOTAL</td>
             <td class="tr amt" style="font-size:15px">${fmtRs(total)}</td>
-          </tr>` : ""}
+          </tr>`
+              : ""
+          }
         </tbody>
       </table>`;
   };
 
   /* ── Person expense table (shows SPLIT amount, not full) ── */
   const personExpenseTable = (list, personName) => {
-    const rows = list.map((exp, i) => {
-      const share   = getPersonShare(exp, personName);
-      const isPayer = getName(exp.paidBy) === personName;
-      const inSplit = (exp.splitBetween || []).some(
-        (m) => (m?.name || (typeof m === "string" ? m : "")) === personName
-      );
+    const rows = list
+      .map((exp, i) => {
+        const share = getPersonShare(exp, personName);
+        const isPayer = getName(exp.paidBy) === personName;
+        const inSplit = (exp.splitBetween || []).some(
+          (m) => (m?.name || (typeof m === "string" ? m : "")) === personName,
+        );
 
-      let shareDisp;
-      if (!inSplit && isPayer) {
-        const others = (exp.splitBetween || [])
-          .map((m) => {
-            const n = m?.name || (typeof m === "string" ? m : "Unknown");
-            const s = getPersonShare(exp, n);
-            return `${n}: ${s !== null ? fmtRs(s) : fmtRs(exp.amount)}`;
-          })
-          .join(", ");
-        shareDisp = `<span style="color:#64748b;font-size:11px">Split on: ${others || "others"}</span>`;
-      } else {
-        shareDisp = `<span class="amt">${share !== null ? fmtRs(share) : fmtRs(exp.amount)}</span>`;
-      }
+        let shareDisp;
+        if (!inSplit && isPayer) {
+          const others = (exp.splitBetween || [])
+            .map((m) => {
+              const n = m?.name || (typeof m === "string" ? m : "Unknown");
+              const s = getPersonShare(exp, n);
+              return `${n}: ${s !== null ? fmtRs(s) : fmtRs(exp.amount)}`;
+            })
+            .join(", ");
+          shareDisp = `<span style="color:#64748b;font-size:11px">Split on: ${others || "others"}</span>`;
+        } else {
+          shareDisp = `<span class="amt">${share !== null ? fmtRs(share) : fmtRs(exp.amount)}</span>`;
+        }
 
-      return `
+        return `
         <tr class="${i % 2 === 0 ? "r-even" : "r-odd"}">
           <td class="tc">${i + 1}</td>
           <td class="td">${exp.description || "—"}</td>
           <td>${exp.group?.name || "Personal"}</td>
           <td>${getName(exp.paidBy)}${isPayer ? ' <span class="paid-badge">paid</span>' : ""}</td>
-          <td>${fmtDate(exp.createdAt || exp.date)}</td>
+          <td>${fmtDate(exp.date)}</td>
           <td class="tr">${shareDisp}</td>
         </tr>`;
-    }).join("");
+      })
+      .join("");
 
     const totalShare = list.reduce((s, exp) => {
       const inSplit = (exp.splitBetween || []).some(
-        (m) => (m?.name || (typeof m === "string" ? m : "")) === personName
+        (m) => (m?.name || (typeof m === "string" ? m : "")) === personName,
       );
       if (!inSplit) return s;
       const share = getPersonShare(exp, personName);
@@ -183,34 +214,44 @@ function generateExpensePDF({
     const memberCols = members.map((m) => `<th class="tr">${m}</th>`).join("");
     const grandTotal = list.reduce((s, e) => s + (e.amount || 0), 0);
     const memberTotals = {};
-    members.forEach((m) => { memberTotals[m] = 0; });
+    members.forEach((m) => {
+      memberTotals[m] = 0;
+    });
 
-    const rows = list.map((exp, i) => {
-      const memberCells = members.map((mName) => {
-        const inSplit = (exp.splitBetween || []).some(
-          (sb) => (sb?.name || (typeof sb === "string" ? sb : "")) === mName
-        );
-        if (!inSplit) return `<td class="tr" style="color:#94a3b8">—</td>`;
-        const share = getPersonShare(exp, mName);
-        const val   = share !== null ? share : 0;
-        memberTotals[mName] += val;
-        return `<td class="tr amt-sm">${fmtRs(val)}</td>`;
-      }).join("");
+    const rows = list
+      .map((exp, i) => {
+        const memberCells = members
+          .map((mName) => {
+            const inSplit = (exp.splitBetween || []).some(
+              (sb) =>
+                (sb?.name || (typeof sb === "string" ? sb : "")) === mName,
+            );
+            if (!inSplit) return `<td class="tr" style="color:#94a3b8">—</td>`;
+            const share = getPersonShare(exp, mName);
+            const val = share !== null ? share : 0;
+            memberTotals[mName] += val;
+            return `<td class="tr amt-sm">${fmtRs(val)}</td>`;
+          })
+          .join("");
 
-      return `
+        return `
         <tr class="${i % 2 === 0 ? "r-even" : "r-odd"}">
           <td class="tc">${i + 1}</td>
           <td class="td">${exp.description || "—"}</td>
           <td>${getName(exp.paidBy)}</td>
-          <td>${fmtDate(exp.createdAt || exp.date)}</td>
+          <td>${fmtDate(exp.date)}</td>
           <td class="tr amt">${fmtRs(exp.amount)}</td>
           ${memberCells}
         </tr>`;
-    }).join("");
+      })
+      .join("");
 
-    const memberTotalCells = members.map(
-      (m) => `<td class="tr amt" style="font-size:13px">${fmtRs(memberTotals[m])}</td>`
-    ).join("");
+    const memberTotalCells = members
+      .map(
+        (m) =>
+          `<td class="tr amt" style="font-size:13px">${fmtRs(memberTotals[m])}</td>`,
+      )
+      .join("");
 
     return `
       <table>
@@ -236,17 +277,17 @@ function generateExpensePDF({
   /* ══════════════════════════════════════════════════════════
      BUILD REPORT BODY
   ══════════════════════════════════════════════════════════ */
-  let reportTitle    = "";
+  let reportTitle = "";
   let reportSubtitle = "";
-  let bodyHtml       = "";
-  let summaryCards   = "";
+  let bodyHtml = "";
+  let summaryCards = "";
 
   /* ── CURRENT VIEW ─────────────────────────────────────── */
   if (reportType === "current") {
-    const total     = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-    reportTitle     = "Expense Report — Current View";
-    reportSubtitle  = `${expenses.length} expense${expenses.length !== 1 ? "s" : ""} · Filter: ${filterValue || "All"}`;
-    summaryCards    = `
+    const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    reportTitle = "Expense Report — Current View";
+    reportSubtitle = `${expenses.length} expense${expenses.length !== 1 ? "s" : ""} · Filter: ${filterValue || "All"}`;
+    summaryCards = `
       <div class="summary-bar">
         <div class="scard blue"><div class="sc-label">Total Expenses</div><div class="sc-val">${expenses.length}</div></div>
         <div class="scard green"><div class="sc-label">Grand Total</div><div class="sc-val">${fmtRs(total)}</div></div>
@@ -273,32 +314,33 @@ function generateExpensePDF({
       bodyHtml = expenseTable(expenses, true);
     }
     if (balances && balances.length > 0) bodyHtml += balanceSection(balances);
-  }
-
-  /* ── SINGLE GROUP ─────────────────────────────────────── */
-  else if (reportType === "single-group") {
-    const total    = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-    reportTitle    = `Group Report — ${filterValue}`;
+  } else if (reportType === "single-group") {
+    /* ── SINGLE GROUP ─────────────────────────────────────── */
+    const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    reportTitle = `Group Report — ${filterValue}`;
     reportSubtitle = `${expenses.length} expense${expenses.length !== 1 ? "s" : ""}`;
 
-    const memberBalSummary = balances && balances.length > 0
-      ? `<div class="member-bal-summary">
+    const memberBalSummary =
+      balances && balances.length > 0
+        ? `<div class="member-bal-summary">
           <div class="section-heading" style="background:#eff6ff;color:#1d4ed8;border-bottom:1px solid #bfdbfe;">Member Balances in ${filterValue}</div>
           <div class="member-bal-grid">
-            ${balances.map((b) => {
-              const isOwe  = b.type === "owe";
-              const color  = isOwe ? "#dc2626" : "#16a34a";
-              const bg     = isOwe ? "#fef2f2" : "#f0fdf4";
-              const border = isOwe ? "#fecaca" : "#bbf7d0";
-              return `<div class="member-bal-card" style="border-color:${border};background:${bg}">
+            ${balances
+              .map((b) => {
+                const isOwe = b.type === "owe";
+                const color = isOwe ? "#dc2626" : "#16a34a";
+                const bg = isOwe ? "#fef2f2" : "#f0fdf4";
+                const border = isOwe ? "#fecaca" : "#bbf7d0";
+                return `<div class="member-bal-card" style="border-color:${border};background:${bg}">
                 <div class="member-bal-name">${b.person}</div>
                 <div class="member-bal-amount" style="color:${color}">${isOwe ? "−" : "+"} ${fmtRs(b.amount)}</div>
                 <div class="member-bal-label" style="color:${color}">${isOwe ? "You owe" : "Owes you"}</div>
               </div>`;
-            }).join("")}
+              })
+              .join("")}
           </div>
         </div>`
-      : "";
+        : "";
 
     summaryCards = `
       <div class="summary-bar">
@@ -313,13 +355,11 @@ function generateExpensePDF({
     </div>`;
     bodyHtml += memberBalSummary;
     if (balances && balances.length > 0) bodyHtml += balanceSection(balances);
-  }
-
-  /* ── ALL GROUPS ───────────────────────────────────────── */
-  else if (reportType === "all-groups") {
-    reportTitle    = "All Groups — Expense Report";
+  } else if (reportType === "all-groups") {
+    /* ── ALL GROUPS ───────────────────────────────────────── */
+    reportTitle = "All Groups — Expense Report";
     reportSubtitle = "Complete group-wise breakdown";
-    const grouped  = {};
+    const grouped = {};
     expenses.forEach((e) => {
       const g = e.group?.name || "No Group";
       if (!grouped[g]) grouped[g] = [];
@@ -335,10 +375,11 @@ function generateExpensePDF({
         <div class="scard purple"><div class="sc-label">Total Expenses</div><div class="sc-val">${expenses.length}</div></div>
       </div>`;
 
-    bodyHtml = groupNames.map((gName) => {
-      const list  = grouped[gName];
-      const total = list.reduce((s, e) => s + (e.amount || 0), 0);
-      return `
+    bodyHtml = groupNames
+      .map((gName) => {
+        const list = grouped[gName];
+        const total = list.reduce((s, e) => s + (e.amount || 0), 0);
+        return `
         <div class="section-block">
           <div class="section-heading group-heading">
             <span>${gName}</span>
@@ -346,34 +387,36 @@ function generateExpensePDF({
           </div>
           ${expenseTable(list, true)}
         </div>`;
-    }).join("");
+      })
+      .join("");
     if (balances && balances.length > 0) bodyHtml += balanceSection(balances);
-  }
-
-  /* ── SINGLE PERSON ────────────────────────────────────── */
-  else if (reportType === "single-person") {
-    reportTitle    = `Person Report — ${filterValue}`;
+  } else if (reportType === "single-person") {
+    /* ── SINGLE PERSON ────────────────────────────────────── */
+    reportTitle = `Person Report — ${filterValue}`;
     reportSubtitle = `Expenses involving ${filterValue} — showing individual split amounts`;
 
     const myExpenses = expenses.filter((e) => {
       const inSplit = (e.splitBetween || []).some(
-        (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue
+        (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue,
       );
       const isPayer = getName(e.paidBy) === filterValue;
       return inSplit || isPayer;
     });
 
-    const paidByMe    = myExpenses.filter((e) => getName(e.paidBy) === filterValue);
-    const splitIntoMe = myExpenses.filter((e) =>
-      getName(e.paidBy) !== filterValue &&
-      (e.splitBetween || []).some(
-        (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue
-      )
+    const paidByMe = myExpenses.filter(
+      (e) => getName(e.paidBy) === filterValue,
+    );
+    const splitIntoMe = myExpenses.filter(
+      (e) =>
+        getName(e.paidBy) !== filterValue &&
+        (e.splitBetween || []).some(
+          (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue,
+        ),
     );
 
     const myTotalShare = myExpenses.reduce((s, exp) => {
       const inSplit = (exp.splitBetween || []).some(
-        (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue
+        (m) => (m?.name || (typeof m === "string" ? m : "")) === filterValue,
       );
       if (inSplit) {
         const share = getPersonShare(exp, filterValue);
@@ -415,11 +458,9 @@ function generateExpensePDF({
     }
 
     if (balances && balances.length > 0) bodyHtml += balanceSection(balances);
-  }
-
-  /* ── ALL PERSONS ──────────────────────────────────────── */
-  else if (reportType === "all-persons") {
-    reportTitle    = "All Persons — Expense Report";
+  } else if (reportType === "all-persons") {
+    /* ── ALL PERSONS ──────────────────────────────────────── */
+    reportTitle = "All Persons — Expense Report";
     reportSubtitle = "Person-wise breakdown with individual split amounts";
     const grandTotal = expenses.reduce((s, e) => s + (e.amount || 0), 0);
 
@@ -441,25 +482,28 @@ function generateExpensePDF({
         <div class="scard purple"><div class="sc-label">Total Expenses</div><div class="sc-val">${expenses.length}</div></div>
       </div>`;
 
-    bodyHtml = personNames.map((pName) => {
-      const involved = expenses.filter((e) =>
-        (e.splitBetween || []).some(
-          (m) => (m?.name || (typeof m === "string" ? m : "")) === pName
-        )
-      );
-      const totalShare = involved.reduce((s, exp) => {
-        const share = getPersonShare(exp, pName);
-        return s + (share || 0);
-      }, 0);
-      const pBal = balances ? balances.filter((b) => b.person === pName) : [];
-      const balHtml = pBal.map((b) => {
-        const isOwe = b.type === "owe";
-        return `<span class="person-bal ${isOwe ? "red" : "green"}">
+    bodyHtml = personNames
+      .map((pName) => {
+        const involved = expenses.filter((e) =>
+          (e.splitBetween || []).some(
+            (m) => (m?.name || (typeof m === "string" ? m : "")) === pName,
+          ),
+        );
+        const totalShare = involved.reduce((s, exp) => {
+          const share = getPersonShare(exp, pName);
+          return s + (share || 0);
+        }, 0);
+        const pBal = balances ? balances.filter((b) => b.person === pName) : [];
+        const balHtml = pBal
+          .map((b) => {
+            const isOwe = b.type === "owe";
+            return `<span class="person-bal ${isOwe ? "red" : "green"}">
           ${isOwe ? `Owes ${fmtRs(b.amount)}` : `Owed ${fmtRs(b.amount)}`}
         </span>`;
-      }).join(" ");
+          })
+          .join(" ");
 
-      return `
+        return `
         <div class="section-block">
           <div class="section-heading person-heading">
             <div style="display:flex;align-items:center;gap:10px;width:100%;">
@@ -473,7 +517,8 @@ function generateExpensePDF({
           </div>
           ${involved.length > 0 ? personExpenseTable(involved, pName) : `<div style="padding:16px;color:#94a3b8;text-align:center;font-size:12px;">No expenses</div>`}
         </div>`;
-    }).join("");
+      })
+      .join("");
 
     if (balances && balances.length > 0) bodyHtml += balanceSection(balances);
   }
@@ -594,32 +639,52 @@ function generateExpensePDF({
 </html>`;
 
   const win = window.open("", "_blank", "width=1050,height=800");
-  if (win) { win.document.write(html); win.document.close(); }
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
 }
 
 /* ═════════════════════════════════════════════════════════════
    COMPONENT
 ═════════════════════════════════════════════════════════════ */
 function AllExpenses() {
-  const [expenses, setExpenses]         = useState([]);
-  const [groups, setGroups]             = useState([{ name: "all", _id: null }]);
-  const [persons, setPersons]           = useState(["all"]);
-  const [balances, setBalances]         = useState([]);
-  const [currentUser, setCurrentUser]   = useState(null);
-  const [searchQuery, setSearchQuery]   = useState("");
-  const [filterGroup, setFilterGroup]   = useState("all");
-  const [filterPerson, setFilterPerson] = useState("all");
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
 
-  const [showReportModal, setShowReportModal]       = useState(false);
-  const [reportType, setReportType]                 = useState("current");
-  const [reportGroupFilter, setReportGroupFilter]   = useState("all");
+  const [expenseForm, setExpenseForm] = useState({
+    description: "",
+    date: new Date().toISOString().split("T")[0],
+    payerMode: "single",
+    singlePayer: "",
+    singleAmount: "",
+    multiPayerAmounts: {},
+    splitType: "equally",
+    splitAmong: new Set(),
+    percentages: {},
+    exactAmounts: {},
+  });
+  const [expenses, setExpenses] = useState([]);
+  const [groups, setGroups] = useState([{ name: "all", _id: null }]);
+  const [persons, setPersons] = useState(["all"]);
+  const [balances, setBalances] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterGroup, setFilterGroup] = useState("all");
+  const [filterPerson, setFilterPerson] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState("current");
+  const [reportGroupFilter, setReportGroupFilter] = useState("all");
   const [reportPersonFilter, setReportPersonFilter] = useState("all");
 
   const token = localStorage.getItem("token");
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
   const resolvePaidBy = (p) => {
     if (!p) return "Unknown";
@@ -633,27 +698,41 @@ function AllExpenses() {
       setError(null);
 
       try {
-        const uRes = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+        const uRes = await fetch(`${API}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (uRes.ok) setCurrentUser(await uRes.json());
-      } catch { /* optional */ }
+      } catch {
+        /* optional */
+      }
 
-      const eRes = await fetch(`${API}/expenses`, { headers: { Authorization: `Bearer ${token}` } });
+      const eRes = await fetch(`${API}/expenses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!eRes.ok) throw new Error("Failed to fetch expenses");
-      const eData  = await eRes.json();
+      const eData = await eRes.json();
       const expList = Array.isArray(eData) ? eData : eData.expenses || [];
       setExpenses(expList);
 
       try {
-        const gRes = await fetch(`${API}/groups`, { headers: { Authorization: `Bearer ${token}` } });
+        const gRes = await fetch(`${API}/groups`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (gRes.ok) {
           const gData = await gRes.json();
           const gList = Array.isArray(gData) ? gData : gData.groups || [];
           setGroups([
             { name: "all", _id: null },
-            ...gList.map((g) => ({ name: g.name, _id: g._id, members: g.members })),
+            ...gList.map((g) => ({
+              name: g.name,
+              _id: g._id,
+              members: g.members,
+            })),
           ]);
         }
-      } catch { /* fallback to expenses */ }
+      } catch {
+        /* fallback to expenses */
+      }
 
       const personSet = new Set();
       expList.forEach((e) => {
@@ -666,17 +745,22 @@ function AllExpenses() {
       });
 
       try {
-        const bRes = await fetch(`${API}/balances`, { headers: { Authorization: `Bearer ${token}` } });
+        const bRes = await fetch(`${API}/balances`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (bRes.ok) {
           const bData = await bRes.json();
           const bList = Array.isArray(bData) ? bData : bData.balances || [];
           setBalances(bList);
-          bList.forEach((b) => { if (b.person) personSet.add(b.person); });
+          bList.forEach((b) => {
+            if (b.person) personSet.add(b.person);
+          });
         }
-      } catch { /* optional */ }
+      } catch {
+        /* optional */
+      }
 
       setPersons(["all", ...Array.from(personSet).sort()]);
-
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Failed to load expenses");
@@ -690,11 +774,14 @@ function AllExpenses() {
     const createdById = expense.createdBy?._id || expense.createdBy;
     if (createdById?.toString() === currentUser._id?.toString()) return true;
     if (expense.group?._id || expense.group) {
-      const groupId  = expense.group?._id || expense.group;
-      const groupObj = groups.find((g) => g._id?.toString() === groupId?.toString());
+      const groupId = expense.group?._id || expense.group;
+      const groupObj = groups.find(
+        (g) => g._id?.toString() === groupId?.toString(),
+      );
       if (groupObj?.members) {
         const me = groupObj.members.find(
-          (m) => (m.user?._id || m.user)?.toString() === currentUser._id?.toString()
+          (m) =>
+            (m.user?._id || m.user)?.toString() === currentUser._id?.toString(),
         );
         if (me?.role === "admin") return true;
       }
@@ -703,7 +790,8 @@ function AllExpenses() {
   };
 
   const handleDeleteExpense = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this expense?")) return;
+    if (!window.confirm("Are you sure you want to delete this expense?"))
+      return;
     try {
       const res = await fetch(`${API}/expenses/${id}`, {
         method: "DELETE",
@@ -715,21 +803,140 @@ function AllExpenses() {
         const d = await res.json();
         alert(d.message || "Failed to delete expense");
       }
-    } catch { alert("Failed to delete expense"); }
+    } catch {
+      alert("Failed to delete expense");
+    }
+  };
+  const getMembersFromExpense = (expense) => {
+    // 1. Try from group (BEST)
+    if (expense.group && expense.group.members) {
+      return expense.group.members.map((m) => ({
+        _id: m.user?._id || m._id,
+        name: m.user?.name || m.name,
+      }));
+    }
+
+    // 2. fallback (splitBetween)
+    const members = [];
+
+    if (expense.splitBetween) {
+      expense.splitBetween.forEach((m) => {
+        members.push({
+          _id: m._id || m,
+          name: m.name || "User",
+        });
+      });
+    }
+
+    return members;
+  };
+
+  const handleEdit = (expense) => {
+    const members = getMembersFromExpense(expense);
+
+    const splitSet = new Set(members.map((m) => m._id));
+
+    const percentages = {};
+    const exactAmounts = {};
+    const multi = {};
+
+    members.forEach((m) => {
+      percentages[m._id] = "";
+      exactAmounts[m._id] = "";
+      multi[m._id] = "";
+    });
+
+    setExpenseForm({
+      description: expense.description || "",
+      date: expense.date?.split("T")[0] || "",
+      payerMode: "single",
+      singlePayer: expense.paidBy?._id || expense.paidBy,
+      singleAmount: expense.amount || "",
+      multiPayerAmounts: multi,
+      splitType: expense.splitType || "equally",
+      splitAmong: splitSet,
+      percentages,
+      exactAmounts,
+    });
+
+    setEditingExpense(expense);
+    setShowModal(true);
+  };
+
+  const handleUpdate = async () => {
+    const {
+      description,
+      date,
+      payerMode,
+      singlePayer,
+      singleAmount,
+      multiPayerAmounts,
+      splitType,
+      splitAmong,
+      percentages,
+      exactAmounts,
+    } = expenseForm;
+
+    const body = {
+      description,
+      date,
+      splitType,
+      splitAmong: [...splitAmong],
+    };
+
+    if (payerMode === "single") {
+      body.paidBy = singlePayer;
+      body.amount = Number(singleAmount);
+    } else {
+      body.paidByMultiple = Object.entries(multiPayerAmounts)
+        .filter(([, v]) => Number(v) > 0)
+        .map(([memberId, amount]) => ({
+          memberId,
+          amount: Number(amount),
+        }));
+    }
+
+    if (splitType === "percentage") {
+      body.percentages = percentages;
+    }
+
+    if (splitType === "exact") {
+      body.exactAmounts = exactAmounts;
+    }
+
+    const res = await fetch(`${API}/expenses/${editingExpense._id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      setShowModal(false);
+      setEditingExpense(null);
+      fetchAll();
+    }
   };
 
   /* ── Filtering ──────────────────────────────────────────── */
   const filteredExpenses = expenses.filter((e) => {
-    const matchSearch  = (e.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchGroup   = filterGroup === "all" || e.group?.name === filterGroup;
-    const matchPerson  = filterGroup !== "all"
-      ? true
-      : filterPerson === "all" || (() => {
-          if (resolvePaidBy(e.paidBy) === filterPerson) return true;
-          return (e.splitBetween || []).some(
-            (m) => (m?.name || (typeof m === "string" ? m : "")) === filterPerson
-          );
-        })();
+    const matchSearch = (e.description || "")
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchGroup = filterGroup === "all" || e.group?.name === filterGroup;
+    const matchPerson =
+      filterGroup !== "all"
+        ? true
+        : filterPerson === "all" ||
+          (() => {
+            if (resolvePaidBy(e.paidBy) === filterPerson) return true;
+            return (e.splitBetween || []).some(
+              (m) =>
+                (m?.name || (typeof m === "string" ? m : "")) === filterPerson,
+            );
+          })();
     return matchSearch && matchGroup && matchPerson;
   });
 
@@ -737,41 +944,44 @@ function AllExpenses() {
 
   /* ── PDF download ───────────────────────────────────────── */
   const handleDownloadReport = () => {
-    const userName = currentUser?.name || localStorage.getItem("userName") || "User";
+    const userName =
+      currentUser?.name || localStorage.getItem("userName") || "User";
     let rType, rFilter, rExpenses, rBalances, rGroupMembers;
 
     if (reportType === "current") {
-      rType    = "current";
+      rType = "current";
       const parts = [];
-      if (filterGroup  !== "all") parts.push(`Group: ${filterGroup}`);
+      if (filterGroup !== "all") parts.push(`Group: ${filterGroup}`);
       if (filterPerson !== "all") parts.push(`Person: ${filterPerson}`);
-      if (searchQuery.trim())     parts.push(`"${searchQuery}"`);
-      rFilter   = parts.join(" · ") || "All";
+      if (searchQuery.trim()) parts.push(`"${searchQuery}"`);
+      rFilter = parts.join(" · ") || "All";
       rExpenses = filteredExpenses;
       const names = new Set();
       filteredExpenses.forEach((e) => {
         const p = resolvePaidBy(e.paidBy);
         if (p && p !== "Unknown") names.add(p);
-        (e.splitBetween || []).forEach((m) => { if (m?.name) names.add(m.name); });
+        (e.splitBetween || []).forEach((m) => {
+          if (m?.name) names.add(m.name);
+        });
       });
       rBalances = balances.filter((b) => names.has(b.person));
-    }
-
-    else if (reportType === "group") {
+    } else if (reportType === "group") {
       if (reportGroupFilter === "all") {
-        rType     = "all-groups";
-        rFilter   = "All Groups";
+        rType = "all-groups";
+        rFilter = "All Groups";
         rExpenses = expenses;
         rBalances = balances;
       } else {
-        rType     = "single-group";
-        rFilter   = reportGroupFilter;
+        rType = "single-group";
+        rFilter = reportGroupFilter;
         rExpenses = expenses.filter((e) => e.group?.name === reportGroupFilter);
 
         // Collect member names from this group's expenses only
         const memberNames = new Set();
         rExpenses.forEach((e) => {
-          (e.splitBetween || []).forEach((m) => { if (m?.name) memberNames.add(m.name); });
+          (e.splitBetween || []).forEach((m) => {
+            if (m?.name) memberNames.add(m.name);
+          });
           const p = resolvePaidBy(e.paidBy);
           if (p && p !== "Unknown") memberNames.add(p);
         });
@@ -786,7 +996,9 @@ function AllExpenses() {
         // Instead, derive balances fresh from this group's expenses.
         // ─────────────────────────────────────────────────────────
         const memberTotals = {};
-        rGroupMembers.forEach((name) => { memberTotals[name] = 0; });
+        rGroupMembers.forEach((name) => {
+          memberTotals[name] = 0;
+        });
 
         rExpenses.forEach((exp) => {
           const payer = resolvePaidBy(exp.paidBy);
@@ -802,7 +1014,8 @@ function AllExpenses() {
 
         // Build rBalances — only members who owe money (amount > 0)
         // and are not the current user themselves
-        const currentUserName = currentUser?.name || localStorage.getItem("userName") || "";
+        const currentUserName =
+          currentUser?.name || localStorage.getItem("userName") || "";
         rBalances = rGroupMembers
           .filter((name) => name !== currentUserName && memberTotals[name] > 0)
           .map((name) => ({
@@ -811,20 +1024,20 @@ function AllExpenses() {
             type: "owed", // they owe you
           }));
       }
-    }
-
-    else if (reportType === "person") {
+    } else if (reportType === "person") {
       if (reportPersonFilter === "all") {
-        rType     = "all-persons";
-        rFilter   = "All Persons";
+        rType = "all-persons";
+        rFilter = "All Persons";
         rExpenses = expenses;
         rBalances = balances;
       } else {
-        rType     = "single-person";
-        rFilter   = reportPersonFilter;
+        rType = "single-person";
+        rFilter = reportPersonFilter;
         rExpenses = expenses.filter((e) => {
           const inSplit = (e.splitBetween || []).some(
-            (m) => (m?.name || (typeof m === "string" ? m : "")) === reportPersonFilter
+            (m) =>
+              (m?.name || (typeof m === "string" ? m : "")) ===
+              reportPersonFilter,
           );
           const isPayer = resolvePaidBy(e.paidBy) === reportPersonFilter;
           return inSplit || isPayer;
@@ -834,12 +1047,25 @@ function AllExpenses() {
     }
 
     setShowReportModal(false);
+
+    // generateExpensePDF({
+    //   expenses:     rExpenses,
+    //   reportType:   rType,
+    //   filterValue:  rFilter,
+    //   generatedBy:  userName,
+    //   balances:     rBalances,
+    //   groupMembers: rGroupMembers,
+    // });
+    const sortedExpenses = [...rExpenses].sort(
+      (a, b) => new Date(a.date) - new Date(b.date),
+    );
+
     generateExpensePDF({
-      expenses:     rExpenses,
-      reportType:   rType,
-      filterValue:  rFilter,
-      generatedBy:  userName,
-      balances:     rBalances,
+      expenses: sortedExpenses, // 👈 use sorted data
+      reportType: rType,
+      filterValue: rFilter,
+      generatedBy: userName,
+      balances: rBalances,
       groupMembers: rGroupMembers,
     });
   };
@@ -847,8 +1073,13 @@ function AllExpenses() {
   const fmtDate = (dateStr) => {
     if (!dateStr) return "N/A";
     const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? dateStr
-      : d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+    return isNaN(d.getTime())
+      ? dateStr
+      : d.toLocaleDateString("en-PK", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
   };
 
   return (
@@ -858,14 +1089,20 @@ function AllExpenses() {
           <h1 className="page-title">All Expenses</h1>
           <p className="page-subtitle">Complete history of your expenses</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowReportModal(true)}>
+        <button
+          className="btn-primary"
+          onClick={() => setShowReportModal(true)}
+        >
           <Download size={18} /> Download Report
         </button>
       </div>
 
       {/* Filters */}
       <div className="search-filter-row" style={{ flexWrap: "wrap", gap: 12 }}>
-        <div className="search-container" style={{ flex: "1 1 220px", marginBottom: 0 }}>
+        <div
+          className="search-container"
+          style={{ flex: "1 1 220px", marginBottom: 0 }}
+        >
           <Search size={20} className="search-icon" />
           <input
             type="text"
@@ -875,17 +1112,40 @@ function AllExpenses() {
             className="search-input"
           />
         </div>
-        <select value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)} className="filter-select">
+        <select
+          value={filterGroup}
+          onChange={(e) => setFilterGroup(e.target.value)}
+          className="filter-select"
+        >
           {groups.map((g) => {
             const val = g?.name ?? g;
-            return <option key={val} value={val}>{val === "all" ? "All Groups" : val}</option>;
+            return (
+              <option key={val} value={val}>
+                {val === "all" ? "All Groups" : val}
+              </option>
+            );
           })}
         </select>
-        <select value={filterPerson} onChange={(e) => setFilterPerson(e.target.value)} className="filter-select">
-          {persons.map((p) => <option key={p} value={p}>{p === "all" ? "All Persons" : p}</option>)}
+        <select
+          value={filterPerson}
+          onChange={(e) => setFilterPerson(e.target.value)}
+          className="filter-select"
+        >
+          {persons.map((p) => (
+            <option key={p} value={p}>
+              {p === "all" ? "All Persons" : p}
+            </option>
+          ))}
         </select>
         {(filterGroup !== "all" || filterPerson !== "all" || searchQuery) && (
-          <button className="btn-secondary" onClick={() => { setFilterGroup("all"); setFilterPerson("all"); setSearchQuery(""); }}>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setFilterGroup("all");
+              setFilterPerson("all");
+              setSearchQuery("");
+            }}
+          >
             <X size={14} /> Clear
           </button>
         )}
@@ -893,28 +1153,79 @@ function AllExpenses() {
 
       {/* Active filter badges */}
       {(filterGroup !== "all" || filterPerson !== "all") && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 16,
+            flexWrap: "wrap",
+          }}
+        >
           {filterGroup !== "all" && (
-            <span className="group-badge" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <span
+              className="group-badge"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
               Group: {filterGroup}
-              <button onClick={() => setFilterGroup("all")} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+              <button
+                onClick={() => setFilterGroup("all")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
             </span>
           )}
           {filterPerson !== "all" && (
-            <span className="group-badge" style={{ display: "inline-flex", alignItems: "center", gap: 5, borderColor: "rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.08)", color: "var(--green)" }}>
+            <span
+              className="group-badge"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                borderColor: "rgba(52,211,153,0.3)",
+                background: "rgba(52,211,153,0.08)",
+                color: "var(--green)",
+              }}
+            >
               Person: {filterPerson}
-              <button onClick={() => setFilterPerson("all")} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+              <button
+                onClick={() => setFilterPerson("all")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
             </span>
           )}
         </div>
       )}
 
-      {loading && <div className="loading-state"><div className="spinner" /><p>Loading expenses...</p></div>}
+      {loading && (
+        <div className="loading-state">
+          <div className="spinner" />
+          <p>Loading expenses...</p>
+        </div>
+      )}
 
       {error && !loading && (
         <div className="error-state">
           <p className="error-message">{error}</p>
-          <button className="btn-primary" onClick={fetchAll}>Retry</button>
+          <button className="btn-primary" onClick={fetchAll}>
+            Retry
+          </button>
         </div>
       )}
 
@@ -923,7 +1234,9 @@ function AllExpenses() {
           <div className="summary-card">
             <div className="summary-item">
               <span className="summary-label">Total Amount</span>
-              <span className="summary-value">Rs {totalAmount.toLocaleString()}</span>
+              <span className="summary-value">
+                Rs {totalAmount.toLocaleString()}
+              </span>
             </div>
             <div className="summary-item">
               <span className="summary-label">Expenses Count</span>
@@ -932,7 +1245,9 @@ function AllExpenses() {
             {filterPerson !== "all" && (
               <div className="summary-item">
                 <span className="summary-label">Person Filter</span>
-                <span className="summary-value" style={{ fontSize: 15 }}>{filterPerson}</span>
+                <span className="summary-value" style={{ fontSize: 15 }}>
+                  {filterPerson}
+                </span>
               </div>
             )}
           </div>
@@ -954,13 +1269,34 @@ function AllExpenses() {
                 <tbody>
                   {filteredExpenses.map((expense) => (
                     <tr key={expense._id}>
-                      <td className="expense-description-cell">{expense.description || "Unnamed Expense"}</td>
-                      <td><span className="group-badge">{expense.group?.name || "No Group"}</span></td>
-                      <td>{resolvePaidBy(expense.paidBy)}</td>
-                      <td className="split-members">{expense.splitBetween?.length || 0} members</td>
-                      <td>{fmtDate(expense.createdAt || expense.date)}</td>
-                      <td className="expense-amount-cell">Rs {(expense.amount || 0).toLocaleString()}</td>
+                      <td className="expense-description-cell">
+                        {expense.description || "Unnamed Expense"}
+                      </td>
                       <td>
+                        <span className="group-badge">
+                          {expense.group?.name || "No Group"}
+                        </span>
+                      </td>
+                      <td>{resolvePaidBy(expense.paidBy)}</td>
+                      <td className="split-members">
+                        {expense.splitBetween?.length || 0} members
+                      </td>
+                      {/* <td>{fmtDate(expense.createdAt || expense.date)}</td> */}
+                      <td>{fmtDate(expense.date || expense.createdAt)}</td>
+                      <td className="expense-amount-cell">
+                        Rs {(expense.amount || 0).toLocaleString()}
+                      </td>
+                      <td style={{ display: "flex", gap: "8px" }}>
+                        {/* EDIT BUTTON */}
+                        <button
+                          onClick={() => handleEdit(expense)}
+                          className="expense-edit-btn"
+                          title="Edit"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                        {/* DELETE BUTTON */}
                         {canDelete(expense) && (
                           <button
                             onClick={() => handleDeleteExpense(expense._id)}
@@ -977,54 +1313,119 @@ function AllExpenses() {
               </table>
             </div>
           ) : (
-            <div className="empty-state"><p>No expenses found</p></div>
+            <div className="empty-state">
+              <p>No expenses found</p>
+            </div>
           )}
         </>
       )}
 
       {/* REPORT MODAL */}
       {showReportModal && (
-        <div className="modal-overlay" onClick={() => setShowReportModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowReportModal(false)}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 480 }}
+          >
             <div className="modal-header">
-              <h2 className="modal-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h2
+                className="modal-title"
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
+              >
                 <FileText size={20} style={{ color: "var(--accent-soft)" }} />
                 Download Report
               </h2>
-              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>✕</button>
+              <button
+                className="modal-close-btn"
+                onClick={() => setShowReportModal(false)}
+              >
+                ✕
+              </button>
             </div>
 
             <div style={{ padding: "4px 0 8px" }}>
-              <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Generate a professional PDF with expense details, split amounts, and balance summaries.
+              <p
+                style={{
+                  color: "var(--text-secondary)",
+                  fontSize: 13,
+                  marginBottom: 20,
+                  lineHeight: 1.6,
+                }}
+              >
+                Generate a professional PDF with expense details, split amounts,
+                and balance summaries.
               </p>
 
               <div className="form-group">
                 <label className="form-label">Report Type</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
                   {[
-                    { value: "current", label: "Current View",  desc: "Exports exactly what you see now (with active filters)" },
-                    { value: "group",   label: "By Group",      desc: "Group expenses with per-member split columns and balance summary" },
-                    { value: "person",  label: "By Person",     desc: "Person's split amounts only — what they actually owe or are owed" },
+                    {
+                      value: "current",
+                      label: "Current View",
+                      desc: "Exports exactly what you see now (with active filters)",
+                    },
+                    {
+                      value: "group",
+                      label: "By Group",
+                      desc: "Group expenses with per-member split columns and balance summary",
+                    },
+                    {
+                      value: "person",
+                      label: "By Person",
+                      desc: "Person's split amounts only — what they actually owe or are owed",
+                    },
                   ].map((opt) => (
                     <label
                       key={opt.value}
                       style={{
-                        display: "flex", alignItems: "flex-start", gap: 12,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 12,
                         padding: "12px 14px",
-                        background: reportType === opt.value ? "var(--accent-dim)" : "var(--glass-white)",
+                        background:
+                          reportType === opt.value
+                            ? "var(--accent-dim)"
+                            : "var(--glass-white)",
                         border: `1px solid ${reportType === opt.value ? "rgba(79,142,247,0.4)" : "var(--glass-border)"}`,
-                        borderRadius: "var(--radius-md)", cursor: "pointer", transition: "all 0.2s",
+                        borderRadius: "var(--radius-md)",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
                       }}
                     >
-                      <input type="radio" name="reportType" value={opt.value}
+                      <input
+                        type="radio"
+                        name="reportType"
+                        value={opt.value}
                         checked={reportType === opt.value}
                         onChange={() => setReportType(opt.value)}
-                        style={{ marginTop: 2, accentColor: "var(--accent-soft)" }}
+                        style={{
+                          marginTop: 2,
+                          accentColor: "var(--accent-soft)",
+                        }}
                       />
                       <div>
-                        <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13, marginBottom: 2 }}>{opt.label}</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{opt.desc}</div>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            fontSize: 13,
+                            marginBottom: 2,
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                        <div
+                          style={{ fontSize: 12, color: "var(--text-muted)" }}
+                        >
+                          {opt.desc}
+                        </div>
                       </div>
                     </label>
                   ))}
@@ -1034,12 +1435,24 @@ function AllExpenses() {
               {reportType === "group" && (
                 <div className="form-group">
                   <label className="form-label">Select Group</label>
-                  <select className="form-input" value={reportGroupFilter} onChange={(e) => setReportGroupFilter(e.target.value)}>
-                    <option value="all">All Groups (group-wise breakdown)</option>
-                    {groups.filter((g) => (g?.name ?? g) !== "all").map((g) => {
-                      const name = g?.name ?? g;
-                      return <option key={name} value={name}>{name}</option>;
-                    })}
+                  <select
+                    className="form-input"
+                    value={reportGroupFilter}
+                    onChange={(e) => setReportGroupFilter(e.target.value)}
+                  >
+                    <option value="all">
+                      All Groups (group-wise breakdown)
+                    </option>
+                    {groups
+                      .filter((g) => (g?.name ?? g) !== "all")
+                      .map((g) => {
+                        const name = g?.name ?? g;
+                        return (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        );
+                      })}
                   </select>
                 </div>
               )}
@@ -1047,19 +1460,43 @@ function AllExpenses() {
               {reportType === "person" && (
                 <div className="form-group">
                   <label className="form-label">Select Person</label>
-                  <select className="form-input" value={reportPersonFilter} onChange={(e) => setReportPersonFilter(e.target.value)}>
-                    <option value="all">All Persons (person-wise breakdown)</option>
-                    {persons.filter((p) => p !== "all").map((p) => <option key={p} value={p}>{p}</option>)}
+                  <select
+                    className="form-input"
+                    value={reportPersonFilter}
+                    onChange={(e) => setReportPersonFilter(e.target.value)}
+                  >
+                    <option value="all">
+                      All Persons (person-wise breakdown)
+                    </option>
+                    {persons
+                      .filter((p) => p !== "all")
+                      .map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
                   </select>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
-                    Shows only expenses where this person is in the split. Amounts shown are their individual share.
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      marginTop: 6,
+                    }}
+                  >
+                    Shows only expenses where this person is in the split.
+                    Amounts shown are their individual share.
                   </p>
                 </div>
               )}
             </div>
 
             <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowReportModal(false)}>Cancel</button>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowReportModal(false)}
+              >
+                Cancel
+              </button>
               <button className="btn-primary" onClick={handleDownloadReport}>
                 <Download size={16} /> Generate PDF
               </button>
@@ -1067,6 +1504,20 @@ function AllExpenses() {
           </div>
         </div>
       )}
+      <ExpenseModal
+        show={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingExpense(null);
+        }}
+        onSubmit={handleUpdate}
+        expenseForm={expenseForm}
+        setExpenseForm={setExpenseForm}
+        submitting={false}
+        error=""
+        members={editingExpense ? getMembersFromExpense(editingExpense) : []}
+        isEditing={true}
+      />
     </DashboardLayout>
   );
 }

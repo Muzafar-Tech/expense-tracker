@@ -518,7 +518,7 @@ function Dashboard() {
                   <div className="expense-details">
                     <h4 className="expense-description">{expense.description || "Unnamed Expense"}</h4>
                     <p className="expense-meta">
-                      {expense.group?.name || "No Group"} • {formatDate(expense.date || expense.createdAt)} • Paid by{" "}
+                      {expense.group?.name || "No Group"} • {formatDate(expense.date)} • Paid by{" "}
                       {expense.paidBy?.name || expense.paidBy || "Unknown"}
                     </p>
                   </div>

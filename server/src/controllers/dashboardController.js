@@ -61,7 +61,7 @@ export const getDashboardData = async (req, res) => {
     const recentExpenses = await Expense.find({ group: { $in: groupIds } })
       .populate("group", "name")
       .populate("paidBy", "name email")
-      .sort({ createdAt: -1 })
+      .sort({ date: -1 })
       .limit(5);                        // ← top 5 most recent only
 
     const formattedExpenses = recentExpenses.map((expense) => ({
@@ -71,7 +71,7 @@ export const getDashboardData = async (req, res) => {
       group: expense.group
         ? { name: expense.group.name }
         : { name: "No Group" },
-      date: expense.createdAt,
+      date: expense.date,
       paidBy: expense.paidBy
         ? { name: expense.paidBy.name }
         : { name: "Unknown" },

@@ -27,14 +27,14 @@ export const getActivities = async (req, res) => {
 
     const formattedActivities = activities.map((activity) => {
       const diff = Math.floor(
-        (Date.now() - new Date(activity.createdAt)) / 1000
+        (Date.now() - new Date(activity.createdAt)) / 1000,
       );
 
       let time = "just now";
-      if (diff < 60)         time = `${diff}s ago`;
-      else if (diff < 3600)  time = `${Math.floor(diff / 60)}m ago`;
+      if (diff < 60) time = `${diff}s ago`;
+      else if (diff < 3600) time = `${Math.floor(diff / 60)}m ago`;
       else if (diff < 86400) time = `${Math.floor(diff / 3600)}h ago`;
-      else                   time = `${Math.floor(diff / 86400)}d ago`;
+      else time = `${Math.floor(diff / 86400)}d ago`;
 
       return {
         _id: activity._id,
@@ -70,7 +70,9 @@ export const deleteActivity = async (req, res) => {
 
     // Only allow deletion of own activities
     if (activity.user.toString() !== userId.toString()) {
-      return res.status(403).json({ message: "Not authorized to delete this activity" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this activity" });
     }
 
     await activity.deleteOne();
@@ -78,6 +80,35 @@ export const deleteActivity = async (req, res) => {
     res.json({ message: "Activity deleted successfully" });
   } catch (error) {
     console.error("deleteActivity error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────
+   DELETE ALL ACTIVITIES (FILTER BASED)
+   — If no type → delete ALL
+   — If type exists → delete only filtered activities
+────────────────────────────────────────────────────────────── */
+export const deleteAllActivities = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { type } = req.query;
+
+    const query = { user: userId };
+
+    if (type && type !== "all") {
+      // support multiple types (comma separated)
+      const types = type.split(",");
+      query.type = { $in: types };
+    }
+
+    await Activity.deleteMany(query);
+
+    res.json({
+      message: "Activities deleted successfully",
+    });
+  } catch (error) {
+    console.error("deleteAllActivities error:", error);
     res.status(500).json({ message: error.message });
   }
 };

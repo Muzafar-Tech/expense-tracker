@@ -206,7 +206,7 @@ export default function AdminExpenses() {
                     </td>
                     <td>
                       <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                        {expense.paidBy?.name ?? "Unknown"}
+                        {expense.paidBy?.name ?? "Multiple / Unknown"}
                       </span>
                     </td>
                     <td>
@@ -217,7 +217,7 @@ export default function AdminExpenses() {
                       )}
                     </td>
                     <td className="split-members" style={{ fontSize: 12 }}>
-                      {expense.splitAmong?.map((s) => s.user?.name).join(", ") || "—"}
+                      {expense.splitBetween?.map((u) => u?.name).join(", ") || "—"}
                     </td>
                     <td className="expense-amount-cell">
                       Rs {expense.amount?.toLocaleString()}

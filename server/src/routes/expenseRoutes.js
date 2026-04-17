@@ -4,6 +4,7 @@ import {
   getExpenses,
   deleteExpense,
   getGroupSettlements,
+  updateExpense
 } from "../controllers/expenseController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -16,5 +17,5 @@ router.get("/settlements/:groupId", protect, getGroupSettlements);
 router.get("/", protect, getExpenses);
 router.post("/", protect, createExpense);
 router.delete("/:id", protect, deleteExpense);
-
+router.put("/:id", protect, updateExpense);
 export default router;

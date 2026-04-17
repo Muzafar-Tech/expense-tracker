@@ -7,6 +7,10 @@ const expenseSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    date: {
+      type: Date,
+      default: Date.now,
+    },
     amount: {
       type: Number,
       required: true,
@@ -60,7 +64,7 @@ const expenseSchema = new mongoose.Schema(
       ref: "users",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("expenses", expenseSchema);

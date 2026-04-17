@@ -1,10 +1,10 @@
 // server/src/controllers/adminController.js
-import bcrypt       from "bcryptjs";
-import User         from "../models/User.js";
-import Group        from "../models/Group.js";
-import Expense      from "../models/Expense.js";
-import Balance      from "../models/Balance.js";
-import Activity     from "../models/Activity.js";
+import bcrypt from "bcryptjs";
+import User from "../models/User.js";
+import Group from "../models/Group.js";
+import Expense from "../models/Expense.js";
+import Balance from "../models/Balance.js";
+import Activity from "../models/Activity.js";
 import Notification from "../models/Notification.js";
 
 /* ─────────────────────────────────────────────────────────────
@@ -20,9 +20,11 @@ export const getStats = async (req, res) => {
       pendingSettlements,
       unreadNotifications,
     ] = await Promise.all([
-      User.countDocuments({ role: { $ne: "admin" } }),  // ✅ FIXED
+      User.countDocuments({ role: { $ne: "admin" } }), // ✅ FIXED
       Group.countDocuments(),
-      Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
+      Expense.aggregate([
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
       Balance.countDocuments({ "pendingSettlements.status": "pending" }),
       Notification.countDocuments({ isRead: false }),
     ]);
@@ -47,31 +49,36 @@ export const getStats = async (req, res) => {
 // GET /api/admin/users — all users with balance summary
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ role: { $ne: "admin" } }).select("-password -token").lean();  // ✅ FIXED
+    const users = await User.find({ role: { $ne: "admin" } })
+      .select("-password -token")
+      .lean(); // ✅ FIXED
 
     const usersWithStats = await Promise.all(
       users.map(async (user) => {
         const [groupCount, balances] = await Promise.all([
           Group.countDocuments({ "members.user": user._id }),
-          Balance.find({ $or: [{ user: user._id }, { person: user._id }], amount: { $gt: 0 } }),
+          Balance.find({
+            $or: [{ user: user._id }, { person: user._id }],
+            amount: { $gt: 0 },
+          }),
         ]);
 
-        let totalOwe  = 0;
+        let totalOwe = 0;
         let totalOwed = 0;
 
         balances.forEach((b) => {
-          if (b.user.toString()   === user._id.toString()) totalOwed += b.amount;
-          if (b.person.toString() === user._id.toString()) totalOwe  += b.amount;
+          if (b.user.toString() === user._id.toString()) totalOwed += b.amount;
+          if (b.person.toString() === user._id.toString()) totalOwe += b.amount;
         });
 
         return {
           ...user,
           groupCount,
-          totalOwe:   Math.round(totalOwe  * 100) / 100,
-          totalOwed:  Math.round(totalOwed * 100) / 100,
+          totalOwe: Math.round(totalOwe * 100) / 100,
+          totalOwed: Math.round(totalOwed * 100) / 100,
           netBalance: Math.round((totalOwed - totalOwe) * 100) / 100,
         };
-      })
+      }),
     );
 
     res.json(usersWithStats);
@@ -91,8 +98,11 @@ export const getUserDetail = async (req, res) => {
 
     const [groups, balances, activities, notifications] = await Promise.all([
       Group.find({ "members.user": userId }).lean(),
-      Balance.find({ $or: [{ user: userId }, { person: userId }], amount: { $gt: 0 } })
-        .populate("user",   "name email")
+      Balance.find({
+        $or: [{ user: userId }, { person: userId }],
+        amount: { $gt: 0 },
+      })
+        .populate("user", "name email")
         .populate("person", "name email")
         .populate("groups", "name")
         .lean(),
@@ -110,19 +120,20 @@ export const getUserDetail = async (req, res) => {
     const formattedBalances = balances.map((b) => {
       const iAmCreditor = b.user._id.toString() === userId;
       return {
-        balanceId:   b._id,
+        balanceId: b._id,
         otherPerson: iAmCreditor ? b.person : b.user,
-        amount:      b.amount,
-        type:        iAmCreditor ? "owes" : "owe",
-        groups:      b.groups.map((g) => g.name),
-        pendingSettlements: b.pendingSettlements?.filter((s) => s.status === "pending") || [],
+        amount: b.amount,
+        type: iAmCreditor ? "owes" : "owe",
+        groups: b.groups.map((g) => g.name),
+        pendingSettlements:
+          b.pendingSettlements?.filter((s) => s.status === "pending") || [],
       };
     });
 
-    let totalOwe  = 0;
+    let totalOwe = 0;
     let totalOwed = 0;
     formattedBalances.forEach((b) => {
-      if (b.type === "owe")  totalOwe  += b.amount;
+      if (b.type === "owe") totalOwe += b.amount;
       if (b.type === "owes") totalOwed += b.amount;
     });
 
@@ -133,8 +144,8 @@ export const getUserDetail = async (req, res) => {
       activities,
       notifications,
       summary: {
-        totalOwe:   Math.round(totalOwe  * 100) / 100,
-        totalOwed:  Math.round(totalOwed * 100) / 100,
+        totalOwe: Math.round(totalOwe * 100) / 100,
+        totalOwed: Math.round(totalOwed * 100) / 100,
         netBalance: Math.round((totalOwed - totalOwe) * 100) / 100,
         groupCount: groups.length,
       },
@@ -151,14 +162,22 @@ export const createUser = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Name, email and password are required" });
     }
 
     const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: "Email already in use" });
+    if (existing)
+      return res.status(400).json({ message: "Email already in use" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user   = await User.create({ name, email, password: hashed, role: "user" });
+    const user = await User.create({
+      name,
+      email,
+      password: hashed,
+      role: "user",
+    });
 
     res.status(201).json({
       message: "User created",
@@ -179,16 +198,20 @@ export const deleteUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.role === "admin") {
-      return res.status(403).json({ message: "Cannot delete an admin account" });
+      return res
+        .status(403)
+        .json({ message: "Cannot delete an admin account" });
     }
 
     await Promise.all([
       Balance.deleteMany({ $or: [{ user: userId }, { person: userId }] }),
       Activity.deleteMany({ user: userId }),
-      Notification.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] }),
+      Notification.deleteMany({
+        $or: [{ recipient: userId }, { sender: userId }],
+      }),
       Group.updateMany(
         { "members.user": userId },
-        { $pull: { members: { user: userId } } }
+        { $pull: { members: { user: userId } } },
       ),
       Expense.deleteMany({ paidBy: userId }),
       User.findByIdAndDelete(userId),
@@ -210,7 +233,7 @@ export const getAllGroups = async (req, res) => {
   try {
     const groups = await Group.find()
       .populate("members.user", "name email")
-      .populate("createdBy",    "name email")
+      .populate("createdBy", "name email")
       .lean();
 
     const groupsWithStats = await Promise.all(
@@ -223,7 +246,7 @@ export const getAllGroups = async (req, res) => {
           ...g,
           totalExpenses: expenseTotal[0]?.total || 0,
         };
-      })
+      }),
     );
 
     res.json(groupsWithStats);
@@ -263,13 +286,13 @@ export const getAllExpenses = async (req, res) => {
   try {
     const { userId, groupId } = req.query;
     const filter = {};
-    if (userId)  filter.paidBy = userId;
-    if (groupId) filter.group  = groupId;
+    if (userId) filter.paidBy = userId;
+    if (groupId) filter.group = groupId;
 
     const expenses = await Expense.find(filter)
       .populate("paidBy", "name email")
-      .populate("group",  "name")
-      .populate("splitAmong.user", "name")
+      .populate("group", "name")
+      .populate("splitBetween", "name")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -301,7 +324,7 @@ export const deleteExpense = async (req, res) => {
 export const getAllBalances = async (req, res) => {
   try {
     const balances = await Balance.find({ amount: { $gt: 0 } })
-      .populate("user",   "name email")
+      .populate("user", "name email")
       .populate("person", "name email")
       .populate("groups", "name")
       .lean();
@@ -331,7 +354,7 @@ export const overrideBalance = async (req, res) => {
     const balance = await Balance.findByIdAndUpdate(
       balanceId,
       { $set: { amount: Math.round(parsed * 100) / 100 } },
-      { new: true }
+      { new: true },
     );
     if (!balance) return res.status(404).json({ message: "Balance not found" });
 
@@ -365,9 +388,10 @@ export const forceConfirmSettlement = async (req, res) => {
     if (!balance) return res.status(404).json({ message: "Balance not found" });
 
     const settlement = balance.pendingSettlements.id(settlementId);
-    if (!settlement) return res.status(404).json({ message: "Settlement not found" });
+    if (!settlement)
+      return res.status(404).json({ message: "Settlement not found" });
 
-    settlement.status     = "confirmed";
+    settlement.status = "confirmed";
     settlement.resolvedAt = new Date();
 
     const remaining = Math.max(0, balance.amount - settlement.amount);
@@ -396,9 +420,9 @@ export const getAllActivities = async (req, res) => {
     if (req.query.userId) filter.user = req.query.userId;
 
     const activities = await Activity.find(filter)
-      .populate("user",        "name email")
+      .populate("user", "name email")
       .populate("relatedUser", "name")
-      .populate("group",       "name")
+      .populate("group", "name")
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
@@ -413,8 +437,29 @@ export const getAllActivities = async (req, res) => {
 // DELETE /api/admin/activities/:activityId
 export const deleteActivity = async (req, res) => {
   try {
-    const activity = await Activity.findByIdAndDelete(req.params.activityId);
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    const { activityId } = req.params;
+
+    // 🔥 CASE 1: DELETE ALL
+    if (activityId === "ALL") {
+      await Activity.deleteMany({});
+      return res.json({ message: "All activities deleted" });
+    }
+
+    // 🔥 CASE 2: DELETE USER ACTIVITIES
+    if (activityId.startsWith("user:")) {
+      const userId = activityId.split(":")[1];
+
+      await Activity.deleteMany({ user: userId });
+      return res.json({ message: "User activities deleted" });
+    }
+
+    // 🔥 CASE 3: SINGLE DELETE
+    const activity = await Activity.findByIdAndDelete(activityId);
+
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
     res.json({ message: "Activity deleted" });
   } catch (error) {
     console.error("deleteActivity error:", error);
@@ -434,7 +479,7 @@ export const getAllNotifications = async (req, res) => {
 
     const notifications = await Notification.find(filter)
       .populate("recipient", "name email")
-      .populate("sender",    "name")
+      .populate("sender", "name")
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
@@ -449,8 +494,11 @@ export const getAllNotifications = async (req, res) => {
 // DELETE /api/admin/notifications/:notificationId
 export const deleteNotification = async (req, res) => {
   try {
-    const notif = await Notification.findByIdAndDelete(req.params.notificationId);
-    if (!notif) return res.status(404).json({ message: "Notification not found" });
+    const notif = await Notification.findByIdAndDelete(
+      req.params.notificationId,
+    );
+    if (!notif)
+      return res.status(404).json({ message: "Notification not found" });
     res.json({ message: "Notification deleted" });
   } catch (error) {
     console.error("deleteNotification error:", error);
@@ -462,23 +510,28 @@ export const deleteNotification = async (req, res) => {
 export const broadcastNotification = async (req, res) => {
   try {
     const { message, detail, userId } = req.body;
-    if (!message) return res.status(400).json({ message: "Message is required" });
+    if (!message)
+      return res.status(400).json({ message: "Message is required" });
 
     const recipients = userId
       ? [{ _id: userId }]
-      : await User.find({ role: { $ne: "admin" } }).select("_id").lean();  // ✅ FIXED
+      : await User.find({ role: { $ne: "admin" } })
+          .select("_id")
+          .lean(); // ✅ FIXED
 
     const notifications = recipients.map((u) => ({
       recipient: u._id,
-      sender:    req.user._id,
-      type:      "admin_broadcast",
+      sender: req.user._id,
+      type: "admin_broadcast",
       message,
-      detail:    detail || "",
+      detail: detail || "",
     }));
 
     await Notification.insertMany(notifications);
 
-    res.json({ message: `Notification sent to ${notifications.length} user(s)` });
+    res.json({
+      message: `Notification sent to ${notifications.length} user(s)`,
+    });
   } catch (error) {
     console.error("broadcastNotification error:", error);
     res.status(500).json({ message: error.message });
