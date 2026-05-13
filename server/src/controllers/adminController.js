@@ -55,21 +55,65 @@ export const getAllUsers = async (req, res) => {
 
     const usersWithStats = await Promise.all(
       users.map(async (user) => {
-        const [groupCount, balances] = await Promise.all([
-          Group.countDocuments({ "members.user": user._id }),
-          Balance.find({
-            $or: [{ user: user._id }, { person: user._id }],
-            amount: { $gt: 0 },
-          }),
-        ]);
+        const groupCount = await Group.countDocuments({
+          "members.user": user._id,
+        });
+
+        const expenses = await Expense.find({
+          $or: [
+            { splitBetween: user._id },
+            { paidBy: user._id },
+            { "paidByMultiple.memberId": user._id },
+          ],
+        });
 
         let totalOwe = 0;
         let totalOwed = 0;
 
-        balances.forEach((b) => {
-          if (b.user.toString() === user._id.toString()) totalOwed += b.amount;
-          if (b.person.toString() === user._id.toString()) totalOwe += b.amount;
-        });
+        for (const expense of expenses) {
+          const totalAmount = expense.amount;
+
+          const payers = expense.paidByMultiple?.length
+            ? expense.paidByMultiple
+            : [{ memberId: expense.paidBy, amount: totalAmount }];
+
+          const debtors = expense.splitBetween || [];
+
+          const shares =
+            typeof expense.debtorShares?.toObject === "function"
+              ? expense.debtorShares.toObject()
+              : expense.debtorShares || {};
+
+          for (const debtor of debtors) {
+            const debtorShare =
+              shares[debtor.toString()] ||
+              Math.round((totalAmount / debtors.length) * 100) / 100;
+
+            for (const payer of payers) {
+              const payerId = payer.memberId.toString();
+
+              if (payerId === debtor.toString()) continue;
+
+              const payerFraction = Number(payer.amount) / totalAmount;
+
+              const owedAmount =
+                Math.round(debtorShare * payerFraction * 100) / 100;
+
+              // USER IS PAYER → user should RECEIVE money
+              if (payerId === user._id.toString()) {
+                totalOwed += owedAmount;
+              }
+
+              // USER IS DEBTOR → user should PAY money
+              if (
+                debtor.toString() === user._id.toString() &&
+                payerId !== user._id.toString()
+              ) {
+                totalOwe += owedAmount;
+              }
+            }
+          }
+        }
 
         return {
           ...user,

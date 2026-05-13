@@ -11,13 +11,142 @@ import Notification from "../models/Notification.js";
    Positive = owed money | Negative = owes money
 ────────────────────────────────────────────────────────────── */
 const getUserBalanceInGroup = async (userId, groupId) => {
-  const owedToUser = await Balance.find({ user: userId, groups: groupId });
-  const totalOwed = owedToUser.reduce((sum, b) => sum + (b.amount || 0), 0);
+  const expenses = await Expense.find({ group: groupId });
 
-  const userOwes = await Balance.find({ person: userId, groups: groupId });
-  const totalOwes = userOwes.reduce((sum, b) => sum + (b.amount || 0), 0);
+  let balance = 0;
 
-  return Math.round((totalOwed - totalOwes) * 100) / 100;
+  for (const expense of expenses) {
+    const totalAmount = expense.amount;
+
+    const payers = expense.paidByMultiple?.length
+      ? expense.paidByMultiple
+      : [{ memberId: expense.paidBy, amount: totalAmount }];
+
+    const debtors = expense.splitBetween || [];
+
+    const shares =
+      typeof expense.debtorShares?.toObject === "function"
+        ? expense.debtorShares.toObject()
+        : expense.debtorShares || {};
+
+    for (const debtor of debtors) {
+      const debtorShare =
+        shares[debtor.toString()] ||
+        Math.round((totalAmount / debtors.length) * 100) / 100;
+
+      for (const payer of payers) {
+        const payerId = payer.memberId.toString();
+
+        if (payerId === debtor.toString()) continue;
+
+        const payerFraction = Number(payer.amount) / totalAmount;
+
+        const owedAmount = Math.round(debtorShare * payerFraction * 100) / 100;
+
+        // user paid → positive
+        if (payerId === userId.toString()) {
+          balance += owedAmount;
+        }
+
+        // user owes → negative
+        if (debtor.toString() === userId.toString()) {
+          balance -= owedAmount;
+        }
+      }
+    }
+  }
+  return Math.round(balance * 100) / 100;
+};
+const recalculateGroupBalances = async (groupId) => {
+  // delete old balances of this group
+  await Balance.deleteMany({
+    groups: groupId,
+  });
+
+  // get all expenses of this group
+  const expenses = await Expense.find({ group: groupId });
+
+  for (const expense of expenses) {
+    const totalAmount = expense.amount;
+
+    const payers = expense.paidByMultiple?.length
+      ? expense.paidByMultiple
+      : [{ memberId: expense.paidBy, amount: totalAmount }];
+
+    const debtors = expense.splitBetween || [];
+
+    const shares = expense.debtorShares || {};
+
+    // AUTO REPAIR OLD EXPENSES
+    if (
+      !expense.debtorShares ||
+      Object.keys(
+        typeof expense.debtorShares.toObject === "function"
+          ? expense.debtorShares.toObject()
+          : expense.debtorShares,
+      ).length === 0
+    ) {
+      const repairedShares = {};
+
+      if (expense.splitType === "equally") {
+        const share =
+          Math.round((expense.amount / expense.splitBetween.length) * 100) /
+          100;
+
+        expense.splitBetween.forEach((id) => {
+          repairedShares[id.toString()] = share;
+        });
+      }
+
+      expense.debtorShares = repairedShares;
+
+      await expense.save();
+    }
+
+    for (const debtor of debtors) {
+      const shareSource = expense.debtorShares || shares;
+
+      const shareFromMap =
+        typeof shareSource.get === "function"
+          ? shareSource.get(debtor.toString())
+          : shareSource[debtor.toString()];
+
+      const totalOwed =
+        shareFromMap ?? Math.round((totalAmount / debtors.length) * 100) / 100;
+
+      if (totalOwed <= 0) continue;
+
+      for (const payer of payers) {
+        if (debtor.toString() === payer.memberId.toString()) continue;
+
+        const fraction = Number(payer.amount) / totalAmount;
+
+        const owedToPayer = Math.round(totalOwed * fraction * 100) / 100;
+
+        if (owedToPayer <= 0) continue;
+
+        const existing = await Balance.findOne({
+          user: payer.memberId,
+          person: debtor,
+          groups: groupId,
+        });
+
+        if (!existing) {
+          await Balance.create({
+            user: payer.memberId,
+            person: debtor,
+            amount: owedToPayer,
+            groups: [groupId],
+          });
+        } else {
+          existing.amount =
+            Math.round((existing.amount + owedToPayer) * 100) / 100;
+
+          await existing.save();
+        }
+      }
+    }
+  }
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -90,6 +219,7 @@ export const getGroups = async (req, res) => {
           })),
           totalExpenses: group.totalExpenses || 0,
           balance: await getUserBalanceInGroup(userId, group._id),
+
           userRole,
         };
       }),
@@ -144,13 +274,17 @@ export const getGroupDetail = async (req, res) => {
     const userRole = memberEntry.role;
 
     const membersWithBalance = await Promise.all(
-      validMembers.map(async (m) => ({
-        _id: m.user._id,
-        name: m.user.name,
-        email: m.user.email,
-        role: m.role,
-        balance: await getUserBalanceInGroup(m.user._id, id),
-      })),
+      validMembers.map(async (m) => {
+        const balance = await getUserBalanceInGroup(m.user._id, id);
+
+        return {
+          _id: m.user._id,
+          name: m.user.name,
+          email: m.user.email,
+          role: m.role,
+          balance,
+        };
+      }),
     );
 
     const yourBalance = await getUserBalanceInGroup(userId, id);
@@ -365,25 +499,9 @@ export const deleteGroup = async (req, res) => {
 
     await Expense.deleteMany({ group: id });
 
-    const isSelfExpense =
-      debtorIds.length === 1 &&
-      payers.length === 1 &&
-      debtorIds[0].toString() === payers[0].memberId.toString();
-
-    if (!isSelfExpense) {
-      const balances = await Balance.find({ groups: id });
-      for (const balance of balances) {
-        balance.groups = balance.groups.filter(
-          (g) => g.toString() !== id.toString(),
-        );
-        if (balance.groups.length === 0) {
-          await balance.deleteOne();
-        } else {
-          balance.amount = 0;
-          await balance.save();
-        }
-      }
-    }
+    await Balance.deleteMany({
+      groups: id,
+    });
 
     const otherMembers = group.members.filter(
       (m) => m.user.toString() !== userId.toString(),

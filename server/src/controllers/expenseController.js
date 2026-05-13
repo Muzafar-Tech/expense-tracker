@@ -600,12 +600,17 @@ export const deleteExpense = async (req, res) => {
 
       for (const debtor of expense.splitBetween) {
         const totalOwed =
-          storedDebtorShares[debtor.toString()] ||
+          typeof storedDebtorShares.get === "function"
+            ? storedDebtorShares.get(debtor.toString())
+            : storedDebtorShares[debtor.toString()];
+
+        const finalOwed =
+          totalOwed ||
           Math.round((totalAmount / expense.splitBetween.length) * 100) / 100;
         for (const payer of storedPayers) {
           if (debtor.toString() === payer.memberId.toString()) continue;
           const payerFraction = Number(payer.amount) / totalAmount;
-          const owedToPayer = Math.round(totalOwed * payerFraction * 100) / 100;
+          const owedToPayer = Math.round(finalOwed * payerFraction * 100) / 100;
           if (owedToPayer > 0) {
             await reverseBalance(payer.memberId, debtor, owedToPayer, groupId);
           }
@@ -642,12 +647,17 @@ export const deleteExpense = async (req, res) => {
 
       for (const debtor of expense.splitBetween) {
         const totalOwed =
-          storedDebtorShares[debtor.toString()] ||
+          typeof storedDebtorShares.get === "function"
+            ? storedDebtorShares.get(debtor.toString())
+            : storedDebtorShares[debtor.toString()];
+
+        const finalOwed =
+          totalOwed ||
           Math.round((totalAmount / expense.splitBetween.length) * 100) / 100;
         for (const payer of storedPayers) {
           if (debtor.toString() === payer.memberId.toString()) continue;
           const payerFraction = Number(payer.amount) / totalAmount;
-          const owedToPayer = Math.round(totalOwed * payerFraction * 100) / 100;
+          const owedToPayer = Math.round(finalOwed * payerFraction * 100) / 100;
           if (owedToPayer > 0) {
             // Reverse no-group balance
             const bal = await Balance.findOne({
@@ -731,22 +741,30 @@ export const updateExpense = async (req, res) => {
     const oldAmount = existingExpense.amount;
     const groupId = existingExpense.group;
 
-    // ───── 1. REVERSE OLD BALANCES ─────
+    /* ─────────────────────────────────────────────
+       1. REVERSE OLD BALANCES
+    ───────────────────────────────────────────── */
     const oldDebtors = existingExpense.splitBetween || [];
     const oldShares = existingExpense.debtorShares || {};
+
     const oldPayers = existingExpense.paidByMultiple?.length
       ? existingExpense.paidByMultiple
       : [{ memberId: existingExpense.paidBy, amount: oldAmount }];
 
     for (const debtor of oldDebtors) {
+      const shareFromMap =
+        typeof oldShares.get === "function"
+          ? oldShares.get(debtor.toString())
+          : oldShares[debtor.toString()];
+
       const totalOwed =
-        oldShares[debtor.toString()] ||
-        Math.round((oldAmount / oldDebtors.length) * 100) / 100;
+        shareFromMap ?? Math.round((oldAmount / oldDebtors.length) * 100) / 100;
 
       for (const payer of oldPayers) {
         if (debtor.toString() === payer.memberId.toString()) continue;
 
         const fraction = Number(payer.amount) / oldAmount;
+
         const owed = Math.round(totalOwed * fraction * 100) / 100;
 
         if (owed > 0 && groupId) {
@@ -755,45 +773,121 @@ export const updateExpense = async (req, res) => {
       }
     }
 
-    // ───── 2. UPDATE EXPENSE ─────
-    const updatedExpense = await Expense.findByIdAndUpdate(
-      id,
-      {
-        description: req.body.description,
-        amount: req.body.amount,
-        date: req.body.date,
-        paidBy: req.body.paidBy,
-      },
-      { new: true },
-    );
+    /* ─────────────────────────────────────────────
+       2. BUILD NEW DATA
+    ───────────────────────────────────────────── */
 
-    const newAmount = updatedExpense.amount;
+    const {
+      description,
+      amount,
+      paidBy,
+      paidByMultiple,
+      splitType = "equally",
+      splitAmong,
+      percentages,
+      exactAmounts,
+      date,
+    } = req.body;
 
-    // ───── 3. UPDATE GROUP TOTAL ─────
+    let payers = [];
+
+    if (
+      paidByMultiple &&
+      Array.isArray(paidByMultiple) &&
+      paidByMultiple.length > 0
+    ) {
+      payers = paidByMultiple.filter((p) => Number(p.amount) > 0);
+    } else {
+      payers = [{ memberId: paidBy, amount: Number(amount) }];
+    }
+
+    const totalAmount =
+      Math.round(payers.reduce((s, p) => s + Number(p.amount), 0) * 100) / 100;
+
+    const debtorIds = splitAmong || [];
+
+    const debtorShares = {};
+
+    if (splitType === "equally") {
+      const share = Math.round((totalAmount / debtorIds.length) * 100) / 100;
+
+      debtorIds.forEach((id) => {
+        debtorShares[id] = share;
+      });
+    } else if (splitType === "percentage") {
+      debtorIds.forEach((id) => {
+        const pct = Number(percentages[id] || 0);
+
+        debtorShares[id] = Math.round(((totalAmount * pct) / 100) * 100) / 100;
+      });
+    } else if (splitType === "exact") {
+      debtorIds.forEach((id) => {
+        debtorShares[id] = Number(exactAmounts[id] || 0);
+      });
+    }
+
+    /* ─────────────────────────────────────────────
+       3. UPDATE EXPENSE
+    ───────────────────────────────────────────── */
+
+    const primaryPayer =
+      payers.length === 1
+        ? payers[0].memberId
+        : payers.reduce((a, b) =>
+            Number(a.amount) >= Number(b.amount) ? a : b,
+          ).memberId;
+
+    existingExpense.description = description;
+    existingExpense.amount = totalAmount;
+    existingExpense.date = date;
+    existingExpense.paidBy = primaryPayer;
+    existingExpense.paidByMultiple = payers;
+    existingExpense.splitBetween = debtorIds;
+    existingExpense.splitType = splitType;
+    existingExpense.debtorShares = debtorShares;
+
+    await existingExpense.save();
+
+    /* ─────────────────────────────────────────────
+       4. UPDATE GROUP TOTAL
+    ───────────────────────────────────────────── */
+
     if (groupId) {
       const group = await Group.findById(groupId);
 
       if (group) {
         group.totalExpenses =
-          Math.round((group.totalExpenses - oldAmount + newAmount) * 100) / 100;
+          Math.round(
+            ((group.totalExpenses || 0) - oldAmount + totalAmount) * 100,
+          ) / 100;
 
         await group.save();
       }
     }
 
-    // ───── 4. APPLY NEW BALANCES ─────
-    const newDebtors = updatedExpense.splitBetween || [];
-    const share = Math.round((newAmount / newDebtors.length) * 100) / 100;
+    /* ─────────────────────────────────────────────
+       5. APPLY NEW BALANCES
+    ───────────────────────────────────────────── */
 
-    for (const debtor of newDebtors) {
-      if (debtor.toString() === updatedExpense.paidBy.toString()) continue;
+    for (const debtor of debtorIds) {
+      const totalOwed = debtorShares[debtor] || 0;
 
-      if (groupId) {
-        await updateBalance(updatedExpense.paidBy, debtor, share, groupId);
+      if (totalOwed <= 0) continue;
+
+      for (const payer of payers) {
+        if (debtor.toString() === payer.memberId.toString()) continue;
+
+        const payerFraction = Number(payer.amount) / totalAmount;
+
+        const owedToPayer = Math.round(totalOwed * payerFraction * 100) / 100;
+
+        if (owedToPayer > 0 && groupId) {
+          await updateBalance(payer.memberId, debtor, owedToPayer, groupId);
+        }
       }
     }
 
-    res.json(updatedExpense);
+    res.json(existingExpense);
   } catch (err) {
     console.error("updateExpense error:", err);
     res.status(500).json({ message: "Update failed" });
