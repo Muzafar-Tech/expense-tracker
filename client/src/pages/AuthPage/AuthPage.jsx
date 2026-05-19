@@ -114,6 +114,8 @@ export default function AuthPage() {
             <div className="auth-divider-line" />
           </div>
 
+
+
           <form onSubmit={handleSubmit} className="auth-form">
             {/* Email */}
             <div>

@@ -36,6 +36,7 @@ const PAYMENT_TYPES = new Set([
 
 function Activity() {
   const [filterType, setFilterType] = useState("all");
+
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

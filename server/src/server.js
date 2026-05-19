@@ -67,7 +67,7 @@ app.use("/api/dashboard",     dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin",         adminRoutes);
 
-// Health check
+// Health check 1
 app.get("/", (req, res) => res.send("API Running"));
 
 const PORT = process.env.PORT || 5000;
